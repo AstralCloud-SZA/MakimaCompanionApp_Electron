@@ -3,17 +3,6 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy"
-          content="
-      default-src  'self';
-      script-src   'self';
-      style-src    'self' 'unsafe-inline' https://fonts.googleapis.com;
-      font-src     'self' https://fonts.gstatic.com;
-      img-src      'self' data: blob:;
-      connect-src  'self' blob: http://localhost:* ws://localhost:*;
-      worker-src   blob:;
-    "
-    />
     <title>Makima</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -22,22 +11,17 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            /* ── Makima eye palette ─────────────────────── */
-            --iris:        #9b1a1a;       /* deep crimson iris */
-            --iris-bright: #cc2020;       /* lit crimson */
-            --ring1:       #c8960a;       /* outer gold ring */
-            --ring2:       #e8b820;       /* inner gold ring — brighter */
+            --iris:        #9b1a1a;
+            --iris-bright: #cc2020;
+            --ring1:       #c8960a;
+            --ring2:       #e8b820;
             --ring-glow:   rgba(200,150,10,0.45);
             --iris-glow:   rgba(180,20,20,0.5);
-
-            /* ── Surface ────────────────────────────────── */
             --black:       #040104;
             --surface:     rgba(4, 1, 4, 0.97);
             --bone:        #e0d4c8;
             --bone-dim:    rgba(224, 212, 200, 0.38);
             --bone-faint:  rgba(224, 212, 200, 0.16);
-
-            /* ── Borders ────────────────────────────────── */
             --border-gold: rgba(200, 150, 10, 0.28);
             --border-iris: rgba(155, 26, 26, 0.3);
         }
@@ -52,7 +36,6 @@
             user-select: none;
         }
 
-        /* ── Canvas ───────────────────────────────────────────────────────────── */
         #vrm-canvas {
             position: fixed;
             inset: 0;
@@ -106,7 +89,7 @@
         #win-controls button:hover { color: var(--ring2); background: rgba(180,130,0,0.15); }
         #btn-close:hover { color: var(--iris-bright) !important; background: rgba(155,26,26,0.25) !important; }
 
-        /* ── Makima eye — concentric crimson + gold rings ─────────────────────── */
+        /* ── Eye mark ─────────────────────────────────────────────────────────── */
         #eye-mark {
             position: fixed;
             top: 9px; right: 72px;
@@ -122,35 +105,27 @@
             transform: translate(-50%, -50%);
         }
 
-        /* Outermost — thin gold */
         .eye-ring:nth-child(1) {
             width: 20px; height: 20px;
             border: 1px solid var(--ring1);
-            opacity: 0.6;
-            animation: eye-breathe 4s ease-in-out infinite;
+            animation: eye-breathe 4s ease-in-out infinite 0s;
         }
 
-        /* Second ring — gold slightly brighter */
         .eye-ring:nth-child(2) {
             width: 14px; height: 14px;
             border: 1px solid var(--ring2);
-            opacity: 0.75;
             animation: eye-breathe 4s ease-in-out infinite 0.4s;
         }
 
-        /* Third ring — thin gold */
         .eye-ring:nth-child(3) {
             width: 9px; height: 9px;
             border: 1px solid var(--ring1);
-            opacity: 0.6;
             animation: eye-breathe 4s ease-in-out infinite 0.8s;
         }
 
-        /* Core — crimson iris */
         .eye-ring:nth-child(4) {
             width: 5px; height: 5px;
             background: var(--iris-bright);
-            box-shadow: 0 0 5px var(--iris-bright), 0 0 10px var(--iris-glow);
             animation: iris-pulse 4s ease-in-out infinite;
         }
 
@@ -179,24 +154,23 @@
             );
         }
 
-        /* gold + crimson top rule */
         #chat-panel::before {
             content: '';
             display: block;
             height: 1px;
             margin-bottom: 14px;
             background: linear-gradient(90deg,
-            transparent        0%,
-            var(--iris)        15%,
-            var(--ring1)       40%,
-            var(--ring2)       50%,
-            var(--ring1)       60%,
-            var(--iris)        85%,
-            transparent        100%);
+            transparent  0%,
+            var(--iris)  15%,
+            var(--ring1) 40%,
+            var(--ring2) 50%,
+            var(--ring1) 60%,
+            var(--iris)  85%,
+            transparent  100%);
             opacity: 0.6;
         }
 
-        /* ── Chat log — 2 messages max ────────────────────────────────────────── */
+        /* ── Chat log ─────────────────────────────────────────────────────────── */
         #chat-log {
             display: flex;
             flex-direction: column;
@@ -204,14 +178,8 @@
             margin-bottom: 16px;
         }
 
-        /* older message — very faded */
-        #chat-log div:first-child:not(:last-child) {
-            opacity: 0.22;
-        }
-
-        #chat-log div:last-child {
-            opacity: 1;
-        }
+        #chat-log div:first-child:not(:last-child) { opacity: 0.22; }
+        #chat-log div:last-child                   { opacity: 1; }
 
         #chat-log div {
             font-size: 0.87rem;
@@ -229,22 +197,17 @@
             border-radius: 1px;
         }
 
-        .msg-user::before {
-            background: var(--bone-faint);
-        }
-
+        .msg-user::before      { background: var(--bone-faint); }
         .msg-assistant::before {
             background: linear-gradient(180deg, var(--ring2), var(--iris-bright));
             box-shadow: 0 0 6px var(--ring-glow);
         }
-
-        .msg-error::before { background: var(--iris-bright); }
+        .msg-error::before     { background: var(--iris-bright); }
 
         .msg-user      { background: rgba(255,255,255,0.015); }
         .msg-assistant { background: rgba(155,26,26,0.06); }
         .msg-error     { background: rgba(155,26,26,0.08); color: #e05050; font-size: 0.78rem !important; }
 
-        /* name label */
         #chat-log div strong {
             display: inline-block;
             font-family: 'Cinzel', serif;
@@ -255,13 +218,10 @@
             margin-right: 10px;
         }
 
-        .msg-user strong      { color: var(--bone-dim); }
-        .msg-assistant strong {
-            color: var(--ring2);
-            text-shadow: 0 0 8px var(--ring-glow);
-        }
+        .msg-user strong       { color: var(--bone-dim); }
+        .msg-assistant strong  { color: var(--ring2); text-shadow: 0 0 8px var(--ring-glow); }
 
-        /* ── Input row ────────────────────────────────────────────────────────── */
+        /* ── Input ────────────────────────────────────────────────────────────── */
         #chat-form {
             display: flex;
             gap: 12px;
@@ -284,15 +244,8 @@
             transition: border-color 0.25s;
         }
 
-        #chat-input:focus {
-            border-bottom-color: var(--ring2);
-        }
-
-        #chat-input::placeholder {
-            color: var(--bone-faint);
-            font-style: italic;
-            letter-spacing: 1.5px;
-        }
+        #chat-input:focus          { border-bottom-color: var(--ring2); }
+        #chat-input::placeholder   { color: var(--bone-faint); font-style: italic; letter-spacing: 1.5px; }
 
         #send-btn {
             background: transparent;
@@ -339,7 +292,6 @@
     </div>
 </div>
 
-<!-- Makima's eye rings: 3 gold + 1 crimson core -->
 <div id="eye-mark">
     <div class="eye-ring"></div>
     <div class="eye-ring"></div>

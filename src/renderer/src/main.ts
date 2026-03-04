@@ -6,8 +6,6 @@ type AnimName = keyof typeof ANIMATIONS
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-// dev  → served by Vite, files live at ./models/...
-// prod → loaded from file://, models copied to resources/ by electron-builder
 const BASE = window.location.protocol === 'file:'
     ? './resources/models'
     : './models'
@@ -39,56 +37,42 @@ const TALK_ANIMS: AnimName[] = [
 // ─── Bone map ─────────────────────────────────────────────────────────────────
 
 const BONE_MAP: Record<string, string> = {
-    // Torso — Mixamo
     Hips: 'J_Bip_C_Hips', Spine: 'J_Bip_C_Spine', Spine1: 'J_Bip_C_Chest',
     Spine2: 'J_Bip_C_UpperChest', Neck: 'J_Bip_C_Neck', Head: 'J_Bip_C_Head',
-    // Torso — VRM camelCase
     hips: 'J_Bip_C_Hips', spine: 'J_Bip_C_Spine', chest: 'J_Bip_C_Chest',
     upperChest: 'J_Bip_C_UpperChest', neck: 'J_Bip_C_Neck', head: 'J_Bip_C_Head',
     jaw: 'J_Bip_C_Head', leftEye: 'J_Adj_L_FaceEye', rightEye: 'J_Adj_R_FaceEye',
-    // Left arm — Mixamo
     LeftShoulder: 'J_Bip_L_Shoulder', LeftArm: 'J_Bip_L_UpperArm',
     LeftForeArm: 'J_Bip_L_LowerArm', LeftHand: 'J_Bip_L_Hand',
-    // Left arm — VRM
     leftShoulder: 'J_Bip_L_Shoulder', leftUpperArm: 'J_Bip_L_UpperArm',
     leftLowerArm: 'J_Bip_L_LowerArm', leftHand: 'J_Bip_L_Hand',
-    // Right arm — Mixamo
     RightShoulder: 'J_Bip_R_Shoulder', RightArm: 'J_Bip_R_UpperArm',
     RightForeArm: 'J_Bip_R_LowerArm', RightHand: 'J_Bip_R_Hand',
-    // Right arm — VRM
     rightShoulder: 'J_Bip_R_Shoulder', rightUpperArm: 'J_Bip_R_UpperArm',
     rightLowerArm: 'J_Bip_R_LowerArm', rightHand: 'J_Bip_R_Hand',
-    // Left leg — Mixamo
     LeftUpLeg: 'J_Bip_L_UpperLeg', LeftLeg: 'J_Bip_L_LowerLeg',
     LeftFoot: 'J_Bip_L_Foot', LeftToeBase: 'J_Bip_L_ToeBase',
-    // Left leg — VRM
     leftUpperLeg: 'J_Bip_L_UpperLeg', leftLowerLeg: 'J_Bip_L_LowerLeg',
     leftFoot: 'J_Bip_L_Foot', leftToes: 'J_Bip_L_ToeBase',
-    // Right leg — Mixamo
     RightUpLeg: 'J_Bip_R_UpperLeg', RightLeg: 'J_Bip_R_LowerLeg',
     RightFoot: 'J_Bip_R_Foot', RightToeBase: 'J_Bip_R_ToeBase',
-    // Right leg — VRM
     rightUpperLeg: 'J_Bip_R_UpperLeg', rightLowerLeg: 'J_Bip_R_LowerLeg',
     rightFoot: 'J_Bip_R_Foot', rightToes: 'J_Bip_R_ToeBase',
-    // Left fingers — Mixamo
     LeftHandThumb1: 'J_Bip_L_Thumb1', LeftHandThumb2: 'J_Bip_L_Thumb2', LeftHandThumb3: 'J_Bip_L_Thumb3',
     LeftHandIndex1: 'J_Bip_L_Index1', LeftHandIndex2: 'J_Bip_L_Index2', LeftHandIndex3: 'J_Bip_L_Index3',
     LeftHandMiddle1: 'J_Bip_L_Middle1', LeftHandMiddle2: 'J_Bip_L_Middle2', LeftHandMiddle3: 'J_Bip_L_Middle3',
     LeftHandRing1: 'J_Bip_L_Ring1', LeftHandRing2: 'J_Bip_L_Ring2', LeftHandRing3: 'J_Bip_L_Ring3',
     LeftHandPinky1: 'J_Bip_L_Little1', LeftHandPinky2: 'J_Bip_L_Little2', LeftHandPinky3: 'J_Bip_L_Little3',
-    // Left fingers — VRM
     leftThumbMetacarpal: 'J_Bip_L_Thumb1', leftThumbProximal: 'J_Bip_L_Thumb2', leftThumbDistal: 'J_Bip_L_Thumb3',
     leftIndexProximal: 'J_Bip_L_Index1', leftIndexIntermediate: 'J_Bip_L_Index2', leftIndexDistal: 'J_Bip_L_Index3',
     leftMiddleProximal: 'J_Bip_L_Middle1', leftMiddleIntermediate: 'J_Bip_L_Middle2', leftMiddleDistal: 'J_Bip_L_Middle3',
     leftRingProximal: 'J_Bip_L_Ring1', leftRingIntermediate: 'J_Bip_L_Ring2', leftRingDistal: 'J_Bip_L_Ring3',
     leftLittleProximal: 'J_Bip_L_Little1', leftLittleIntermediate: 'J_Bip_L_Little2', leftLittleDistal: 'J_Bip_L_Little3',
-    // Right fingers — Mixamo
     RightHandThumb1: 'J_Bip_R_Thumb1', RightHandThumb2: 'J_Bip_R_Thumb2', RightHandThumb3: 'J_Bip_R_Thumb3',
     RightHandIndex1: 'J_Bip_R_Index1', RightHandIndex2: 'J_Bip_R_Index2', RightHandIndex3: 'J_Bip_R_Index3',
     RightHandMiddle1: 'J_Bip_R_Middle1', RightHandMiddle2: 'J_Bip_R_Middle2', RightHandMiddle3: 'J_Bip_R_Middle3',
     RightHandRing1: 'J_Bip_R_Ring1', RightHandRing2: 'J_Bip_R_Ring2', RightHandRing3: 'J_Bip_R_Ring3',
     RightHandPinky1: 'J_Bip_R_Little1', RightHandPinky2: 'J_Bip_R_Little2', RightHandPinky3: 'J_Bip_R_Little3',
-    // Right fingers — VRM
     rightThumbMetacarpal: 'J_Bip_R_Thumb1', rightThumbProximal: 'J_Bip_R_Thumb2', rightThumbDistal: 'J_Bip_R_Thumb3',
     rightIndexProximal: 'J_Bip_R_Index1', rightIndexIntermediate: 'J_Bip_R_Index2', rightIndexDistal: 'J_Bip_R_Index3',
     rightMiddleProximal: 'J_Bip_R_Middle1', rightMiddleIntermediate: 'J_Bip_R_Middle2', rightMiddleDistal: 'J_Bip_R_Middle3',
@@ -110,15 +94,17 @@ let renderer:    THREE.WebGLRenderer
 let vrm:         any = null
 let mixer:       THREE.AnimationMixer | null = null
 let currentAnim: AnimName | null = null
+let pendingAnim: AnimName | null = null
 let animLocked   = false
 let idleTimer:   number | null = null
 let lastUserTime = Date.now()
 const clock      = new THREE.Clock()
+const clipCache  = new Map<AnimName, THREE.AnimationClip>()
 const chatHistory: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
-function setStatus(text: string, color = 'rgba(255,255,255,0.35)'): void {
+function setStatus(text: string, color = 'rgba(224,212,200,0.18)'): void {
     const el = document.getElementById('status')
     if (!el) return
     el.textContent = text
@@ -130,17 +116,26 @@ function setStatus(text: string, color = 'rgba(255,255,255,0.35)'): void {
 function initScene(): void {
     const canvas = document.getElementById('vrm-canvas') as HTMLCanvasElement
     scene  = new THREE.Scene()
-    camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 20)
-    camera.position.set(0, 1.4, 2.8)
-    camera.lookAt(0, 1.2, 0)
+
+    camera = new THREE.PerspectiveCamera(28, window.innerWidth / window.innerHeight, 0.1, 20)
+    camera.position.set(0, 1.65, 2.5)
+    camera.lookAt(0, 1.4, 0)
 
     renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.sortObjects = true
 
-    const dir = new THREE.DirectionalLight(0xffffff, 1)
-    dir.position.set(1, 1, 1)
-    scene.add(dir, new THREE.AmbientLight(0x404040, 0.5))
+    const key = new THREE.DirectionalLight(0xffe8d5, 1.1)
+    key.position.set(1.5, 2, 2)
+    scene.add(key)
+
+    const fill = new THREE.DirectionalLight(0xd0c0ff, 0.3)
+    fill.position.set(-2, 1, 1)
+    scene.add(fill)
+
+    scene.add(new THREE.AmbientLight(0x201015, 0.8))
 
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight
@@ -160,7 +155,7 @@ function renderLoop(): void {
 // ─── VRM ──────────────────────────────────────────────────────────────────────
 
 function loadVRM(): void {
-    setStatus('Loading model…')
+    setStatus('Loading…')
     const loader = new GLTFLoader()
     loader.register(p => new VRMLoaderPlugin(p))
     loader.load(
@@ -168,38 +163,40 @@ function loadVRM(): void {
         gltf => {
             vrm = gltf.userData.vrm
             vrm.humanoid?.resetNormalizedPose()
-            vrm.scene.rotation.y = 0
-            vrm.scene.position.set(0, 0, 0)
+            vrm.scene.rotation.y = 0            // VRM1.0 already faces +Z toward camera
+            vrm.scene.position.set(0, 0.85, 0)
             scene.add(vrm.scene)
-            setStatus('Ready')
-            setTimeout(() => playAnim('idle'), 500)
+
+            // Prevent bones shifting outside frustum from hiding face/hair meshes
+            vrm.scene.traverse((obj: any) => {
+                obj.frustumCulled = false
+            })
+
+            mixer = new THREE.AnimationMixer(vrm.scene)
+            setStatus('—')
+            setTimeout(() => playAnim('idle'), 400)
         },
         undefined,
         err => {
             console.error('VRM load error:', err)
-            setStatus('Model load failed — check resources/models path', '#f87171')
+            setStatus('Model load failed', '#cc2020')
         }
     )
 }
 
-// ─── VRMA ─────────────────────────────────────────────────────────────────────
 
-function loadVRMA(url: string, name: AnimName): Promise<void> {
+// ─── VRMA — retarget and cache ────────────────────────────────────────────────
+
+async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
+    if (clipCache.has(name)) return clipCache.get(name)!
+
     return new Promise((resolve, reject) => {
         const loader = new GLTFLoader()
         loader.register(p => new VRMLoaderPlugin(p))
         loader.load(
-            url,
+            ANIMATIONS[name],
             gltf => {
-                if (!vrm?.scene)              { reject(new Error('VRM not ready'));          return }
-                if (!gltf.animations?.length) { reject(new Error('No animations in file')); return }
-
-                if (mixer) {
-                    mixer.stopAllAction()
-                    mixer.uncacheRoot(vrm.scene)
-                    mixer = null
-                }
-                vrm.humanoid?.resetNormalizedPose()
+                if (!gltf.animations?.length) { reject(new Error('No animations')); return }
 
                 const clip   = gltf.animations[0]
                 const tracks: THREE.KeyframeTrack[] = []
@@ -219,22 +216,14 @@ function loadVRMA(url: string, name: AnimName): Promise<void> {
 
                 if (tracks.length === 0) {
                     const found = [...new Set(clip.tracks.map(t => t.name.slice(0, t.name.indexOf('.'))))]
-                    console.warn(`[${name}] retargeting failed. Bones in clip:`, found)
+                    console.warn(`[${name}] retargeting failed. Bones in file:`, found)
                     reject(new Error('Retargeting failed'))
                     return
                 }
 
-                const retargeted = new THREE.AnimationClip(`${clip.name}_${name}`, clip.duration, tracks)
-                mixer            = new THREE.AnimationMixer(vrm.scene)
-                const action     = mixer.clipAction(retargeted)
-                action.setLoop(THREE.LoopRepeat, Infinity)
-                action.clampWhenFinished = false
-                action.enabled           = true
-                action.setEffectiveTimeScale(1).setEffectiveWeight(1)
-                action.reset().play()
-
-                currentAnim = name
-                resolve()
+                const retargeted = new THREE.AnimationClip(`anim_${name}`, clip.duration, tracks)
+                clipCache.set(name, retargeted)
+                resolve(retargeted)
             },
             undefined,
             err => reject(err)
@@ -244,19 +233,45 @@ function loadVRMA(url: string, name: AnimName): Promise<void> {
 
 // ─── Animation ────────────────────────────────────────────────────────────────
 
+let currentAction: THREE.AnimationAction | null = null
+
 async function playAnim(name: AnimName): Promise<void> {
-    if (animLocked) return
+    if (!mixer) return
+    if (animLocked) { pendingAnim = name; return }
+    if (currentAnim === name) return
+
     animLocked = true
     try {
-        await loadVRMA(ANIMATIONS[name], name)
+        const clip      = await getClip(name)
+        const nextAction = mixer.clipAction(clip)
+
+        nextAction.setLoop(THREE.LoopRepeat, Infinity)
+        nextAction.clampWhenFinished = false
+        nextAction.enabled           = true
+        nextAction.setEffectiveTimeScale(1).setEffectiveWeight(1)
+        nextAction.reset()
+
+        if (currentAction) {
+            // Smooth crossfade — doesn't snap skeleton
+            nextAction.crossFadeFrom(currentAction, 0.4, true)
+        }
+
+        nextAction.play()
+        currentAction = nextAction
+        currentAnim   = name
     } catch (e) {
-        console.error('Animation error:', e)
+        console.error(`Animation error [${name}]:`, e)
     } finally {
         animLocked = false
+        if (pendingAnim && pendingAnim !== currentAnim) {
+            const next  = pendingAnim
+            pendingAnim = null
+            playAnim(next)
+        }
     }
 }
 
-function scheduleIdle(ms = 5000): void {
+function scheduleIdle(ms = 6000): void {
     if (idleTimer) clearTimeout(idleTimer)
     idleTimer = window.setTimeout(() => {
         if (currentAnim !== 'idle') playAnim('idle')
@@ -275,48 +290,40 @@ function pickContextAnim(text: string): AnimName {
 }
 
 // ─── Chat UI ──────────────────────────────────────────────────────────────────
-const MAX_VISIBLE_MESSAGES = 2
+
+const MAX_MSGS = 2
 
 function addMsg(role: 'user' | 'assistant' | 'error', text: string): void {
     const log = document.getElementById('chat-log')!
     const div = document.createElement('div')
-
     if (role === 'error') {
         div.className   = 'msg-error'
-        div.textContent = `⚠ ${text}`
+        div.textContent = ` ${text}`
     } else {
         div.className = role === 'user' ? 'msg-user' : 'msg-assistant'
         div.innerHTML = `<strong>${role === 'user' ? 'You' : 'Makima'}</strong>${text.replace(/\n/g, '<br>')}`
     }
-
     log.appendChild(div)
-
-    // Keep only last MAX_VISIBLE_MESSAGES in the DOM
-    while (log.children.length > MAX_VISIBLE_MESSAGES) {
-        log.removeChild(log.firstChild!)
-    }
+    while (log.children.length > MAX_MSGS) log.removeChild(log.firstChild!)
 }
-
 
 async function sendMessage(text: string): Promise<void> {
     if (!text.trim()) return
     addMsg('user', text)
     lastUserTime = Date.now()
     chatHistory.push({ role: 'user', content: text })
-
-    await playAnim(pickContextAnim(text))
-
-    setStatus('Thinking…')
+    playAnim(pickContextAnim(text))
+    setStatus('…')
     try {
         const reply = await window.makima.ollamaChat(chatHistory)
         chatHistory.push({ role: 'assistant', content: reply })
         addMsg('assistant', reply)
-        setStatus('Ready')
-        scheduleIdle(5000)
+        setStatus('—')
+        scheduleIdle(6000)
     } catch (err) {
         const msg = (err as Error).message ?? 'Ollama unreachable'
         addMsg('error', msg)
-        setStatus('Ollama error', '#f87171')
+        setStatus('Offline', '#cc2020')
         playAnim('idle')
     }
 }
@@ -327,54 +334,48 @@ function startAutonomousLoop(): void {
     setInterval(async () => {
         const idleMinutes = (Date.now() - lastUserTime) / 60_000
         if (idleMinutes < 3 || Math.random() < 0.6) return
-
         chatHistory.push({
             role: 'user',
-            content: 'Autonomous mode. The user has been silent for a while. Say one short thing in character as Makima.',
+            content: 'Autonomous mode. The user has been silent. Say one short thing in character as Makima.',
         })
-
         try {
-            await playAnim(TALK_ANIMS[Math.floor(Math.random() * TALK_ANIMS.length)])
+            playAnim(TALK_ANIMS[Math.floor(Math.random() * TALK_ANIMS.length)])
             const reply = await window.makima.ollamaChat(chatHistory)
             chatHistory.push({ role: 'assistant', content: reply })
             addMsg('assistant', reply)
             lastUserTime = Date.now()
-            scheduleIdle(5000)
-        } catch {
-            // silent — don't spam errors on autonomous turns
-        }
+            scheduleIdle(6000)
+        } catch { /* silent */ }
     }, 60_000)
 }
 
 // ─── Ollama health ────────────────────────────────────────────────────────────
 
 async function checkOllama(): Promise<void> {
-    setStatus('Connecting to Ollama…')
+    setStatus('Connecting…')
     try {
         const result = await window.makima.ollamaCheck()
         if (!result.ok) {
             addMsg('error', 'Ollama not reachable — run: ollama serve')
-            setStatus('Ollama offline', '#f87171')
+            setStatus('Offline', '#cc2020')
             return
         }
         const hasModel = result.models?.some(m => m.startsWith('gemma2:2b'))
         if (!hasModel) {
             addMsg('error', 'gemma2:2b not found — run: ollama pull gemma2:2b')
-            setStatus('Model missing', '#fbbf24')
+            setStatus('Model missing', '#c8960a')
             return
         }
-        setStatus('Ollama ready ✓', '#86efac')
+        setStatus('—', 'rgba(200,150,10,0.5)')
     } catch (err) {
         addMsg('error', (err as Error).message ?? 'Health check failed')
-        setStatus('Ollama offline', '#f87171')
+        setStatus('Offline', '#cc2020')
     }
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-function init(): void
-{
-    // Window controls — wired to IPC, work with frame: false
+function init(): void {
     const btnMin   = document.getElementById('btn-minimize')
     const btnClose = document.getElementById('btn-close')
     if (btnMin)   btnMin.onclick   = () => window.makima.minimize()
@@ -383,8 +384,7 @@ function init(): void
     const form  = document.getElementById('chat-form')  as HTMLFormElement
     const input = document.getElementById('chat-input') as HTMLInputElement
 
-    form.onsubmit = async (e) =>
-    {
+    form.onsubmit = async (e) => {
         e.preventDefault()
         const text = input.value.trim()
         if (!text) return
@@ -403,6 +403,5 @@ function init(): void
     startAutonomousLoop()
     checkOllama()
 }
-
 
 document.addEventListener('DOMContentLoaded', init)

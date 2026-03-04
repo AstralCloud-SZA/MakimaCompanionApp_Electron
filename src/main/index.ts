@@ -7,17 +7,19 @@ const OLLAMA_URL = 'http://localhost:11434/api/chat'
 
 function createWindow(): void {
     const win = new BrowserWindow({
-        width:           900,
-        height:          700,
-        minWidth:        600,
-        minHeight:       500,
-        frame:           false,
-        transparent:     true,
-        hasShadow:       true,
+        width:       900,
+        height:      700,
+        minWidth:    600,
+        minHeight:   500,
+        frame:       false,
+        transparent: true,
+        hasShadow:   true,
         webPreferences: {
             preload:          join(__dirname, '../preload/index.js'),
             contextIsolation: true,
             nodeIntegration:  false,
+            webSecurity:      false,   // ← lets THREE.js blob: textures load freely
+            sandbox:          false,   // ← required for blob object URLs
         },
     })
 
@@ -40,17 +42,8 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
 })
 
-// ─── Window controls via IPC ──────────────────────────────────────────────────
-
-ipcMain.on('window:minimize', () => {
-    BrowserWindow.getFocusedWindow()?.minimize()
-})
-
-ipcMain.on('window:close', () => {
-    BrowserWindow.getFocusedWindow()?.close()
-})
-
-// ─── Ollama — Node.js main process, zero CORS ─────────────────────────────────
+ipcMain.on('window:minimize', () => BrowserWindow.getFocusedWindow()?.minimize())
+ipcMain.on('window:close',    () => BrowserWindow.getFocusedWindow()?.close())
 
 ipcMain.handle('ollama:chat', async (_e, messages: { role: string; content: string }[]) => {
     const res = await fetch(OLLAMA_URL, {
@@ -58,10 +51,7 @@ ipcMain.handle('ollama:chat', async (_e, messages: { role: string; content: stri
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ model: MODEL_NAME, messages, stream: false }),
     })
-    if (!res.ok) {
-        const body = await res.text().catch(() => '')
-        throw new Error(`Ollama HTTP ${res.status}${body ? ': ' + body : ''}`)
-    }
+    if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`)
     const data = await res.json() as any
     return data.message?.content ?? '…'
 })
@@ -70,10 +60,7 @@ ipcMain.handle('ollama:health', async () => {
     try {
         const res  = await fetch('http://localhost:11434/api/tags')
         const data = await res.json() as any
-        return {
-            ok:     true,
-            models: (data.models ?? []).map((m: any) => m.name as string),
-        }
+        return { ok: true, models: (data.models ?? []).map((m: any) => m.name as string) }
     } catch (err) {
         return { ok: false, error: (err as Error).message }
     }
