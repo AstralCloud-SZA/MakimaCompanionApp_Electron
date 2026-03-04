@@ -9,7 +9,7 @@ export default defineConfig({
         plugins: [externalizeDepsPlugin()],
     },
     renderer: {
-        publicDir: resolve('resources'),   // ← this is the fix
+        publicDir: resolve('resources'),
         resolve: {
             alias: {
                 '@renderer': resolve('src/renderer/src'),

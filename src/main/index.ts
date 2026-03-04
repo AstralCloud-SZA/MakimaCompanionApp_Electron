@@ -11,8 +11,9 @@ function createWindow(): void {
         height:          700,
         minWidth:        600,
         minHeight:       500,
-        frame:           true,
-        backgroundColor: '#080508',
+        frame:           false,
+        transparent:     true,
+        hasShadow:       true,
         webPreferences: {
             preload:          join(__dirname, '../preload/index.js'),
             contextIsolation: true,
@@ -39,10 +40,18 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
 })
 
-// ─── Ollama — runs in Node.js main process, zero CORS, zero CSP ──────────────
+// ─── Window controls via IPC ──────────────────────────────────────────────────
 
-// Returns plain string on success, throws on failure so the renderer
-// catch block receives a proper Error object via Electron IPC serialisation
+ipcMain.on('window:minimize', () => {
+    BrowserWindow.getFocusedWindow()?.minimize()
+})
+
+ipcMain.on('window:close', () => {
+    BrowserWindow.getFocusedWindow()?.close()
+})
+
+// ─── Ollama — Node.js main process, zero CORS ─────────────────────────────────
+
 ipcMain.handle('ollama:chat', async (_e, messages: { role: string; content: string }[]) => {
     const res = await fetch(OLLAMA_URL, {
         method:  'POST',

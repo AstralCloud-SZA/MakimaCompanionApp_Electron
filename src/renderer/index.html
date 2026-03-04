@@ -3,279 +3,280 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:;" />
     <title>Makima</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400&display=swap" rel="stylesheet" />
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400&display=swap');
-
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
             --red:        #8b0000;
             --red-bright: #c0392b;
-            --red-glow:   rgba(139, 0, 0, 0.4);
+            --red-glow:   rgba(139, 0, 0, 0.45);
             --red-dim:    rgba(139, 0, 0, 0.15);
-            --gold:       #b8860b;
-            --gold-light: #d4a843;
-            --bg:         #080508;
-            --bg2:        #0f080f;
-            --surface:    rgba(15, 5, 10, 0.85);
-            --border:     rgba(139, 0, 0, 0.25);
+            --bg-panel:   rgba(6, 2, 8, 0.92);
+            --border:     rgba(139, 0, 0, 0.28);
             --text:       #e8d5d5;
-            --text-dim:   rgba(232, 213, 213, 0.4);
-            --text-faint: rgba(232, 213, 213, 0.2);
+            --text-dim:   rgba(232, 213, 213, 0.45);
+            --text-faint: rgba(232, 213, 213, 0.22);
         }
 
         html, body {
             width: 100%; height: 100%;
-            background: var(--bg);
+            background: transparent;
             overflow: hidden;
             font-family: 'Inter', sans-serif;
             color: var(--text);
             user-select: none;
         }
 
-        /* ── Ambient background ──────────────────────────────────────────────── */
-        body::before {
-            content: '';
-            position: fixed; inset: 0;
-            background:
-                    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(100, 0, 0, 0.18) 0%, transparent 70%),
-                    radial-gradient(ellipse 30% 30% at 20% 20%, rgba(60, 0, 0, 0.12) 0%, transparent 60%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        /* ── Canvas ──────────────────────────────────────────────────────────── */
+        /* ── Canvas — full screen, transparent ───────────────────────────────── */
         #vrm-canvas {
             position: fixed;
             inset: 0;
             width: 100%; height: 100%;
+            background: transparent;
             z-index: 1;
         }
 
-        /* ── Vignette overlay ────────────────────────────────────────────────── */
-        #vignette {
-            position: fixed; inset: 0;
-            background: radial-gradient(ellipse at center,
-            transparent 40%,
-            rgba(5, 0, 5, 0.5) 100%);
-            pointer-events: none;
-            z-index: 2;
-        }
-
-        /* ── Top bar ─────────────────────────────────────────────────────────── */
-        #topbar {
+        /* ── Drag handle — invisible bar at top ──────────────────────────────── */
+        #drag-bar {
             position: fixed;
             top: 0; left: 0; right: 0;
-            height: 38px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 20px;
-            background: linear-gradient(180deg, rgba(8,3,8,0.95) 0%, rgba(8,3,8,0.0) 100%);
-            z-index: 10;
+            padding: 0 14px;
+            -webkit-app-region: drag;
+            z-index: 20;
+            background: transparent;
         }
 
-        #topbar-title {
+        #drag-title {
             font-family: 'Cormorant Garamond', serif;
-            font-size: 13px;
+            font-size: 11px;
             font-weight: 300;
-            letter-spacing: 6px;
+            letter-spacing: 5px;
             text-transform: uppercase;
-            color: var(--red-bright);
-            opacity: 0.7;
+            color: rgba(192, 57, 43, 0.55);
+            pointer-events: none;
         }
 
-        #topbar-ring {
-            width: 8px; height: 8px;
+        #win-controls {
+            -webkit-app-region: no-drag;
+            display: flex;
+            gap: 6px;
+        }
+
+        #win-controls button {
+            background: none;
+            border: none;
+            color: rgba(232, 213, 213, 0.3);
+            font-size: 13px;
+            cursor: pointer;
+            padding: 2px 7px;
+            border-radius: 3px;
+            transition: color 0.2s, background 0.2s;
+            line-height: 1;
+        }
+
+        #win-controls button:hover {
+            color: var(--red-bright);
+            background: rgba(139, 0, 0, 0.2);
+        }
+
+        #btn-close:hover {
+            color: #ff4444 !important;
+            background: rgba(180, 0, 0, 0.3) !important;
+        }
+
+        /* ── Pulse ring top-right ────────────────────────────────────────────── */
+        #status-ring {
+            position: fixed;
+            top: 13px; right: 50px;
+            width: 7px; height: 7px;
             border-radius: 50%;
             background: var(--red-bright);
-            box-shadow: 0 0 6px var(--red-bright), 0 0 12px var(--red));
-            animation: pulse 3s ease-in-out infinite;
+            box-shadow: 0 0 6px var(--red-bright);
+            animation: ring-pulse 3s ease-in-out infinite;
+            z-index: 20;
+            pointer-events: none;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 0.4; box-shadow: 0 0 4px var(--red-bright); }
+        @keyframes ring-pulse {
+            0%, 100% { opacity: 0.3; box-shadow: 0 0 4px var(--red); }
             50%       { opacity: 1.0; box-shadow: 0 0 10px var(--red-bright), 0 0 20px var(--red); }
         }
 
-        /* ── Chat panel ──────────────────────────────────────────────────────── */
+        /* ── Chat panel — only solid part of the UI ──────────────────────────── */
         #chat-panel {
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            padding: 0 24px 20px;
+            padding: 0 22px 18px;
             background: linear-gradient(
                     0deg,
-                    rgba(6, 2, 6, 0.97) 0%,
-                    rgba(6, 2, 6, 0.85) 60%,
+                    var(--bg-panel) 0%,
+                    rgba(6, 2, 8, 0.88) 65%,
                     transparent 100%
             );
             z-index: 10;
         }
 
-        /* thin red rule at top of panel */
         #chat-panel::before {
             content: '';
             display: block;
             height: 1px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             background: linear-gradient(90deg,
             transparent 0%,
-            var(--red) 30%,
-            var(--red) 70%,
+            var(--red) 25%,
+            var(--red-bright) 50%,
+            var(--red) 75%,
             transparent 100%);
-            opacity: 0.35;
+            opacity: 0.3;
         }
 
         /* ── Chat log ────────────────────────────────────────────────────────── */
         #chat-log {
-            max-height: 200px;
+            max-height: 190px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            margin-bottom: 12px;
+            gap: 5px;
+            margin-bottom: 11px;
             padding-right: 4px;
         }
 
-        #chat-log::-webkit-scrollbar       { width: 3px; }
+        #chat-log::-webkit-scrollbar       { width: 2px; }
         #chat-log::-webkit-scrollbar-track { background: transparent; }
-        #chat-log::-webkit-scrollbar-thumb { background: var(--red); border-radius: 2px; opacity: 0.5; }
+        #chat-log::-webkit-scrollbar-thumb { background: var(--red); border-radius: 2px; }
 
         #chat-log div {
-            font-size: 0.85rem;
+            font-size: 0.84rem;
             line-height: 1.55;
-            padding: 6px 10px;
-            border-radius: 4px;
+            padding: 5px 10px;
+            border-radius: 3px;
             border-left: 2px solid transparent;
-            background: rgba(255,255,255,0.02);
-            transition: border-color 0.2s;
         }
 
-        #chat-log div.msg-user {
-            border-left-color: rgba(232, 213, 213, 0.2);
+        .msg-user {
+            border-left-color: rgba(232, 213, 213, 0.18) !important;
+            background: rgba(255, 255, 255, 0.02);
         }
 
-        #chat-log div.msg-assistant {
-            border-left-color: var(--red);
-            background: rgba(139, 0, 0, 0.06);
+        .msg-assistant {
+            border-left-color: var(--red) !important;
+            background: rgba(139, 0, 0, 0.07);
+        }
+
+        .msg-error {
+            border-left-color: #ff4444 !important;
+            background: rgba(255, 50, 50, 0.06);
+            color: #ff6b6b;
+            font-size: 0.78rem !important;
         }
 
         #chat-log div strong {
             font-weight: 400;
             font-family: 'Cormorant Garamond', serif;
-            font-size: 0.95rem;
-            letter-spacing: 1px;
+            font-size: 0.93rem;
+            letter-spacing: 0.5px;
+            margin-right: 4px;
         }
 
-        #chat-log div.msg-user strong     { color: var(--text-dim); }
-        #chat-log div.msg-assistant strong { color: var(--red-bright); }
+        .msg-user strong     { color: var(--text-dim); }
+        .msg-assistant strong { color: var(--red-bright); }
 
         /* ── Input row ───────────────────────────────────────────────────────── */
         #chat-form {
             display: flex;
-            gap: 10px;
+            gap: 9px;
             align-items: center;
         }
 
         #chat-input {
             flex: 1;
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--border);
-            border-bottom: 1px solid rgba(139, 0, 0, 0.5);
+            border-bottom-color: rgba(139, 0, 0, 0.55);
             border-radius: 3px;
-            padding: 9px 14px;
+            padding: 8px 13px;
             color: var(--text);
             font-family: 'Inter', sans-serif;
-            font-size: 0.88rem;
+            font-size: 0.87rem;
             font-weight: 300;
             outline: none;
-            transition: border-color 0.25s, background 0.25s;
-            letter-spacing: 0.3px;
+            transition: border-color 0.2s, background 0.2s;
+            letter-spacing: 0.2px;
         }
 
         #chat-input:focus {
-            background: rgba(139, 0, 0, 0.07);
-            border-color: rgba(139, 0, 0, 0.6);
+            background: rgba(139, 0, 0, 0.06);
+            border-color: rgba(139, 0, 0, 0.55);
             border-bottom-color: var(--red-bright);
         }
 
-        #chat-input::placeholder {
-            color: var(--text-faint);
-            font-style: italic;
-        }
+        #chat-input::placeholder { color: var(--text-faint); font-style: italic; }
 
         #send-btn {
             background: var(--red-dim);
             border: 1px solid var(--border);
-            border-bottom: 1px solid var(--red);
+            border-bottom-color: var(--red);
             border-radius: 3px;
             color: var(--red-bright);
             font-family: 'Cormorant Garamond', serif;
-            font-size: 1rem;
+            font-size: 0.95rem;
             letter-spacing: 2px;
-            padding: 8px 18px;
+            padding: 7px 16px;
             cursor: pointer;
-            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-            white-space: nowrap;
+            transition: background 0.2s, box-shadow 0.2s, color 0.2s;
         }
 
         #send-btn:hover {
-            background: rgba(139, 0, 0, 0.3);
-            color: #ff4444;
-            box-shadow: 0 0 12px var(--red-glow);
+            background: rgba(139, 0, 0, 0.28);
+            color: #ff5555;
+            box-shadow: 0 0 10px var(--red-glow);
         }
 
-        #send-btn:active {
-            background: rgba(139, 0, 0, 0.5);
-        }
-
-        /* ── Status bar ──────────────────────────────────────────────────────── */
+        /* ── Status ──────────────────────────────────────────────────────────── */
         #status {
-            font-size: 0.72rem;
+            margin-top: 6px;
+            font-size: 0.7rem;
             letter-spacing: 1.5px;
             text-transform: uppercase;
             color: var(--text-faint);
             text-align: right;
-            margin-top: 6px;
-            font-family: 'Inter', sans-serif;
             font-weight: 300;
             transition: color 0.3s;
-        }
-
-        /* ── Error messages ──────────────────────────────────────────────────── */
-        .msg-error {
-            color: #ff6b6b !important;
-            font-size: 0.78rem !important;
-            border-left-color: #ff6b6b !important;
-            background: rgba(255, 50, 50, 0.05) !important;
         }
     </style>
 </head>
 <body>
 
-<!-- Ambient vignette -->
-<div id="vignette"></div>
-
-<!-- Top bar -->
-<div id="topbar">
-    <span id="topbar-title">Makima</span>
-    <div id="topbar-ring"></div>
+<!-- Frameless drag bar with window controls -->
+<div id="drag-bar">
+    <span id="drag-title">Makima</span>
+    <div id="win-controls">
+        <button id="btn-minimize">─</button>
+        <button id="btn-close">✕</button>
+    </div>
 </div>
 
-<!-- 3D canvas -->
+<!-- Pulse ring -->
+<div id="status-ring"></div>
+
+<!-- 3D canvas — transparent background shows through -->
 <canvas id="vrm-canvas"></canvas>
 
-<!-- Chat panel -->
+<!-- Chat panel — only opaque part -->
 <div id="chat-panel">
     <div id="chat-log"></div>
     <form id="chat-form" autocomplete="off">
-        <input
-                id="chat-input"
-                type="text"
-                placeholder="Speak…"
-                spellcheck="false"
-        />
+        <input id="chat-input" type="text" placeholder="Speak…" spellcheck="false" />
         <button id="send-btn" type="submit">Send</button>
     </form>
     <div id="status">Connecting…</div>

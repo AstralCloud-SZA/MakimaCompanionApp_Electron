@@ -367,14 +367,19 @@ async function checkOllama(): Promise<void> {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-function init(): void {
-    document.getElementById('btn-minimize')!.onclick = () => window.makima.minimize()
-    document.getElementById('btn-close')!.onclick    = () => window.makima.close()
+function init(): void
+{
+    // Window controls — wired to IPC, work with frame: false
+    const btnMin   = document.getElementById('btn-minimize')
+    const btnClose = document.getElementById('btn-close')
+    if (btnMin)   btnMin.onclick   = () => window.makima.minimize()
+    if (btnClose) btnClose.onclick = () => window.makima.close()
 
     const form  = document.getElementById('chat-form')  as HTMLFormElement
     const input = document.getElementById('chat-input') as HTMLInputElement
 
-    form.onsubmit = async (e) => {
+    form.onsubmit = async (e) =>
+    {
         e.preventDefault()
         const text = input.value.trim()
         if (!text) return
@@ -393,5 +398,6 @@ function init(): void {
     startAutonomousLoop()
     checkOllama()
 }
+
 
 document.addEventListener('DOMContentLoaded', init)

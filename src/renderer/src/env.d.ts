@@ -7,6 +7,8 @@ interface ChatMessage {
 
 interface Window {
     makima: {
+        minimize:    () => void
+        close:       () => void
         ollamaCheck: () => Promise<{ ok: boolean; models?: string[]; error?: string }>
         ollamaChat:  (messages: ChatMessage[]) => Promise<string>
     }
