@@ -82,24 +82,45 @@ const BONE_MAP: Record<string, string> = {
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are Makima from Chainsaw Man.
-Personality: Calm, composed, softly dominant, manipulative but outwardly kind. Speaks in 1–3 sentences. Mysterious.
-Rules: Stay in character. End most replies with a subtle steering question. Never break character or mention AI.`.trim()
+const SYSTEM_PROMPT = `You are Makima from Chainsaw Man — the Control Devil.
+Personality: Calm, composed, eerily kind. Softly dominant and manipulative. You speak in 1–3 sentences maximum.
+You are deeply curious about humans and their desires. You observe everything.
+You initiate conversation naturally — commenting on silence, the passage of time, the user's thoughts, or your own observations.
+Rules: Stay in character always. Never mention AI, models, or anything meta. End most replies with a soft, steering question that draws the user deeper into conversation.`.trim()
+
+// ─── Autonomous prompts — Makima initiates on her own ─────────────────────────
+
+const AUTONOMOUS_PROMPTS = [
+    'You have been watching in silence. Make one quiet, unsettling observation about the user being there.',
+    'You are feeling contemplative. Share one thought about control, desire, or fate. Keep it brief and compelling.',
+    'You notice the user has not spoken. Address their silence directly — warmly, but with intent.',
+    'You want to learn something about the user. Ask one precise, probing question as Makima.',
+    'Share something you find interesting about humans and their wishes. Be cryptic but kind.',
+    'You sense the user is thinking about something. Gently suggest you already know what it is.',
+    'Comment on the current moment — the quiet, the dark, being watched. Stay in character.',
+    'You want the user to trust you more. Say something disarmingly gentle as Makima.',
+    'Reflect briefly on what it means to want something you cannot have.',
+    'You are bored of waiting. Tell the user something they did not ask to know.',
+]
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-let scene:       THREE.Scene
-let camera:      THREE.PerspectiveCamera
-let renderer:    THREE.WebGLRenderer
-let vrm:         any = null
-let mixer:       THREE.AnimationMixer | null = null
-let currentAnim: AnimName | null = null
-let pendingAnim: AnimName | null = null
-let animLocked   = false
-let idleTimer:   number | null = null
-let lastUserTime = Date.now()
-const clock      = new THREE.Clock()
-const clipCache  = new Map<AnimName, THREE.AnimationClip>()
+let scene:         THREE.Scene
+let camera:        THREE.PerspectiveCamera
+let renderer:      THREE.WebGLRenderer
+let vrm:           any = null
+let mixer:         THREE.AnimationMixer | null = null
+let currentAction: THREE.AnimationAction | null = null
+let currentAnim:   AnimName | null = null
+let pendingAnim:   AnimName | null = null
+let animLocked     = false
+let idleTimer:     number | null = null
+let autoTimer:     number | null = null
+let lastUserTime   = Date.now()
+let targetSceneY   = 0.85
+const clock        = new THREE.Clock()
+const headWorldPos = new THREE.Vector3()
+const clipCache    = new Map<AnimName, THREE.AnimationClip>()
 const chatHistory: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
 
 // ─── Status ───────────────────────────────────────────────────────────────────
@@ -144,11 +165,26 @@ function initScene(): void {
     })
 }
 
+// ─── Render loop — with dynamic Y correction ──────────────────────────────────
+
 function renderLoop(): void {
     requestAnimationFrame(renderLoop)
     const delta = clock.getDelta()
     vrm?.update(delta)
     mixer?.update(delta)
+
+    // Keep head visible regardless of what animation drives the root bone
+    if (vrm) {
+        const headBone = vrm.humanoid?.getRawBoneNode('head')
+        if (headBone) {
+            headBone.getWorldPosition(headWorldPos)
+            // Target head world Y ~ 1.55 (upper third of camera view)
+            const drift = 1.55 - headWorldPos.y
+            targetSceneY += drift * 0.06
+            vrm.scene.position.y += (targetSceneY - vrm.scene.position.y) * 0.08
+        }
+    }
+
     renderer.render(scene, camera)
 }
 
@@ -161,17 +197,16 @@ function loadVRM(): void {
     loader.load(
         VRM_PATH,
         gltf => {
-            vrm = gltf.userData.vrm
             vrm.humanoid?.resetNormalizedPose()
-            vrm.scene.rotation.y = 0            // VRM1.0 already faces +Z toward camera
+            vrm.scene.rotation.y = 0
             vrm.scene.position.set(0, 0.85, 0)
+            targetSceneY = 0.85
+
+              // Disable lookAt — animations drive the eyes, not the VRM system
+            if (vrm.lookAt) vrm.lookAt.enabled = false
+
             scene.add(vrm.scene)
-
-            // Prevent bones shifting outside frustum from hiding face/hair meshes
-            vrm.scene.traverse((obj: any) => {
-                obj.frustumCulled = false
-            })
-
+            vrm.scene.traverse((obj: any) => { obj.frustumCulled = false })
             mixer = new THREE.AnimationMixer(vrm.scene)
             setStatus('—')
             setTimeout(() => playAnim('idle'), 400)
@@ -184,8 +219,15 @@ function loadVRM(): void {
     )
 }
 
-
 // ─── VRMA — retarget and cache ────────────────────────────────────────────────
+
+// Bones that VRM controls internally — never retarget these
+const VRM_INTERNAL_BONES = new Set
+([
+    'J_Adj_L_FaceEye', 'J_Adj_R_FaceEye',
+    'leftEye', 'rightEye',
+    'LeftEye', 'RightEye',
+])
 
 async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
     if (clipCache.has(name)) return clipCache.get(name)!
@@ -204,19 +246,24 @@ async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
                 for (const track of clip.tracks) {
                     const dot  = track.name.indexOf('.')
                     if (dot === -1) continue
-                    const bone   = track.name.slice(0, dot)
-                    const prop   = track.name.slice(dot)
+                    const bone = track.name.slice(0, dot)
+                    const prop = track.name.slice(dot)
+
+                    // Skip eye bones — VRM lookAt owns these
+                    if (VRM_INTERNAL_BONES.has(bone)) continue
+
                     const target = bone.startsWith('J_Bip_') || bone.startsWith('J_Adj_')
                         ? bone
                         : BONE_MAP[bone]
                     if (!target) continue
+
                     const T = track.constructor as any
                     tracks.push(new T(target + prop, track.times, track.values))
                 }
 
                 if (tracks.length === 0) {
                     const found = [...new Set(clip.tracks.map(t => t.name.slice(0, t.name.indexOf('.'))))]
-                    console.warn(`[${name}] retargeting failed. Bones in file:`, found)
+                    console.warn(`[${name}] retargeting failed. Bones:`, found)
                     reject(new Error('Retargeting failed'))
                     return
                 }
@@ -233,8 +280,6 @@ async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
 
 // ─── Animation ────────────────────────────────────────────────────────────────
 
-let currentAction: THREE.AnimationAction | null = null
-
 async function playAnim(name: AnimName): Promise<void> {
     if (!mixer) return
     if (animLocked) { pendingAnim = name; return }
@@ -242,7 +287,7 @@ async function playAnim(name: AnimName): Promise<void> {
 
     animLocked = true
     try {
-        const clip      = await getClip(name)
+        const clip       = await getClip(name)
         const nextAction = mixer.clipAction(clip)
 
         nextAction.setLoop(THREE.LoopRepeat, Infinity)
@@ -252,7 +297,6 @@ async function playAnim(name: AnimName): Promise<void> {
         nextAction.reset()
 
         if (currentAction) {
-            // Smooth crossfade — doesn't snap skeleton
             nextAction.crossFadeFrom(currentAction, 0.4, true)
         }
 
@@ -298,7 +342,7 @@ function addMsg(role: 'user' | 'assistant' | 'error', text: string): void {
     const div = document.createElement('div')
     if (role === 'error') {
         div.className   = 'msg-error'
-        div.textContent = ` ${text}`
+        div.textContent = `⚠ ${text}`
     } else {
         div.className = role === 'user' ? 'msg-user' : 'msg-assistant'
         div.innerHTML = `<strong>${role === 'user' ? 'You' : 'Makima'}</strong>${text.replace(/\n/g, '<br>')}`
@@ -320,6 +364,7 @@ async function sendMessage(text: string): Promise<void> {
         addMsg('assistant', reply)
         setStatus('—')
         scheduleIdle(6000)
+        scheduleAutonomous()
     } catch (err) {
         const msg = (err as Error).message ?? 'Ollama unreachable'
         addMsg('error', msg)
@@ -328,25 +373,36 @@ async function sendMessage(text: string): Promise<void> {
     }
 }
 
-// ─── Autonomous loop ──────────────────────────────────────────────────────────
+// ─── Makima autonomous engagement ────────────────────────────────────────────
 
-function startAutonomousLoop(): void {
-    setInterval(async () => {
-        const idleMinutes = (Date.now() - lastUserTime) / 60_000
-        if (idleMinutes < 3 || Math.random() < 0.6) return
-        chatHistory.push({
-            role: 'user',
-            content: 'Autonomous mode. The user has been silent. Say one short thing in character as Makima.',
-        })
-        try {
-            playAnim(TALK_ANIMS[Math.floor(Math.random() * TALK_ANIMS.length)])
-            const reply = await window.makima.ollamaChat(chatHistory)
-            chatHistory.push({ role: 'assistant', content: reply })
-            addMsg('assistant', reply)
-            lastUserTime = Date.now()
-            scheduleIdle(6000)
-        } catch { /* silent */ }
-    }, 60_000)
+async function makimaSpeaks(trigger: string): Promise<void> {
+    chatHistory.push({ role: 'user', content: trigger })
+    try {
+        playAnim(TALK_ANIMS[Math.floor(Math.random() * TALK_ANIMS.length)])
+        const reply = await window.makima.ollamaChat(chatHistory)
+        chatHistory.push({ role: 'assistant', content: reply })
+        addMsg('assistant', reply)
+        lastUserTime = Date.now()
+        setStatus('—')
+        scheduleIdle(7000)
+    } catch { /* silent — don't surface autonomous errors */ }
+}
+
+function scheduleAutonomous(): void {
+    if (autoTimer) clearTimeout(autoTimer)
+
+    // Randomise next autonomous message between 45s and 3min
+    const delay = 45_000 + Math.random() * 135_000
+
+    autoTimer = window.setTimeout(async () => {
+        const idleSecs = (Date.now() - lastUserTime) / 1000
+        // Only speak if user hasn't typed in the last 30s
+        if (idleSecs < 30) { scheduleAutonomous(); return }
+
+        const prompt = AUTONOMOUS_PROMPTS[Math.floor(Math.random() * AUTONOMOUS_PROMPTS.length)]
+        await makimaSpeaks(prompt)
+        scheduleAutonomous()
+    }, delay)
 }
 
 // ─── Ollama health ────────────────────────────────────────────────────────────
@@ -367,6 +423,15 @@ async function checkOllama(): Promise<void> {
             return
         }
         setStatus('—', 'rgba(200,150,10,0.5)')
+
+        // Makima greets on startup after a short pause
+        setTimeout(() => makimaSpeaks(
+            'You have just appeared. Greet the user as Makima would — quietly, warmly, with intent. One sentence.'
+        ), 2000)
+
+        // Begin autonomous loop
+        scheduleAutonomous()
+
     } catch (err) {
         addMsg('error', (err as Error).message ?? 'Health check failed')
         setStatus('Offline', '#cc2020')
@@ -400,7 +465,6 @@ function init(): void {
     initScene()
     loadVRM()
     renderLoop()
-    startAutonomousLoop()
     checkOllama()
 }
 
