@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Makima</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: transparent;
+            overflow: hidden;
+            font-family: 'Segoe UI', sans-serif;
+            color: #e8d5c4;
+            user-select: none;
+        }
+
+        #vrm-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+        }
+
+        #ui {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            padding: 12px 16px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #chat-log {
+            max-height: 180px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 4px 0;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+
+        #chat-log div {
+            font-size: 0.88rem;
+            line-height: 1.45;
+            padding: 2px 0;
+        }
+
+        #chat-log div strong { color: #c9a96e; }
+
+        #chat-form {
+            display: flex;
+            gap: 8px;
+        }
+
+        #chat-input {
+            flex: 1;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #fff;
+            font-size: 0.9rem;
+            outline: none;
+        }
+
+        #chat-input:focus { border-color: rgba(201,169,110,0.6); }
+
+        #chat-input::placeholder { color: rgba(255,255,255,0.35); }
+
+        #send-btn {
+            background: rgba(201,169,110,0.25);
+            border: 1px solid rgba(201,169,110,0.5);
+            border-radius: 8px;
+            color: #c9a96e;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        #send-btn:hover { background: rgba(201,169,110,0.4); }
+
+        #status {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.4);
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+<canvas id="vrm-canvas"></canvas>
+<div id="ui">
+    <div id="chat-log"></div>
+    <div id="chat-form">
+        <input id="chat-input" type="text" placeholder="Speak to Makima…" autocomplete="off" />
+        <button id="send-btn">Send</button>
+    </div>
+    <div id="status">Connecting to Ollama…</div>
+</div>
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>

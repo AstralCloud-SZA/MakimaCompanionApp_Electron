@@ -1,0 +1,25 @@
+{
+  "name": "makima-companion",
+  "version": "1.0.0",
+  "description": "Makima AI Holographic Companion",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite dev"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "^2.1.3",
+    "three": "^0.164.1"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@types/three": "^0.164.0",
+    "electron": "^40.6.1",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^7.3.1"
+  }
+}
