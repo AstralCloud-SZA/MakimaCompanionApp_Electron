@@ -2,28 +2,33 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin } from '@pixiv/three-vrm'
 
-// AnimName derives from ANIMATIONS — defined here since ANIMATIONS lives here
 type AnimName = keyof typeof ANIMATIONS
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-const VRM_PATH = './models/8559372518173948307.vrm'
+// dev  → served by Vite, files live at ./models/...
+// prod → loaded from file://, models copied to resources/ by electron-builder
+const BASE = window.location.protocol === 'file:'
+    ? './resources/models'
+    : './models'
+
+const VRM_PATH = `${BASE}/8559372518173948307.vrm`
 
 const ANIMATIONS = {
-    idle:     './models/animations/V_HIMEHINA.vrma',
-    standing: './models/animations/VRMA_01.vrma',
-    greeting: './models/animations/VRMA_02.vrma',
-    peace:    './models/animations/VRMA_03.vrma',
-    shoot:    './models/animations/VRMA_04.vrma',
-    spin:     './models/animations/VRMA_05.vrma',
-    model:    './models/animations/VRMA_06.vrma',
-    squat:    './models/animations/VRMA_07.vrma',
-    kidding:  './models/animations/Kidding.vrma',
-    pose1:    './models/animations/P1.vrma',
-    pose2:    './models/animations/P2.vrma',
-    pose3:    './models/animations/P3.vrma',
-    pose4:    './models/animations/P4.vrma',
-    pose5:    './models/animations/P5.vrma',
+    idle:     `${BASE}/animations/V_HIMEHINA.vrma`,
+    standing: `${BASE}/animations/VRMA_01.vrma`,
+    greeting: `${BASE}/animations/VRMA_02.vrma`,
+    peace:    `${BASE}/animations/VRMA_03.vrma`,
+    shoot:    `${BASE}/animations/VRMA_04.vrma`,
+    spin:     `${BASE}/animations/VRMA_05.vrma`,
+    model:    `${BASE}/animations/VRMA_06.vrma`,
+    squat:    `${BASE}/animations/VRMA_07.vrma`,
+    kidding:  `${BASE}/animations/Kidding.vrma`,
+    pose1:    `${BASE}/animations/P1.vrma`,
+    pose2:    `${BASE}/animations/P2.vrma`,
+    pose3:    `${BASE}/animations/P3.vrma`,
+    pose4:    `${BASE}/animations/P4.vrma`,
+    pose5:    `${BASE}/animations/P5.vrma`,
 } as const
 
 const TALK_ANIMS: AnimName[] = [
@@ -99,11 +104,11 @@ Rules: Stay in character. End most replies with a subtle steering question. Neve
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-let scene:    THREE.Scene
-let camera:   THREE.PerspectiveCamera
-let renderer: THREE.WebGLRenderer
-let vrm:      any = null
-let mixer:    THREE.AnimationMixer | null = null
+let scene:       THREE.Scene
+let camera:      THREE.PerspectiveCamera
+let renderer:    THREE.WebGLRenderer
+let vrm:         any = null
+let mixer:       THREE.AnimationMixer | null = null
 let currentAnim: AnimName | null = null
 let animLocked   = false
 let idleTimer:   number | null = null
@@ -117,15 +122,15 @@ function setStatus(text: string, color = 'rgba(255,255,255,0.35)'): void {
     const el = document.getElementById('status')
     if (!el) return
     el.textContent = text
-    el.style.color  = color
+    el.style.color = color
 }
 
 // ─── Scene ────────────────────────────────────────────────────────────────────
 
 function initScene(): void {
     const canvas = document.getElementById('vrm-canvas') as HTMLCanvasElement
-    scene    = new THREE.Scene()
-    camera   = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 20)
+    scene  = new THREE.Scene()
+    camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 20)
     camera.position.set(0, 1.4, 2.8)
     camera.lookAt(0, 1.2, 0)
 
