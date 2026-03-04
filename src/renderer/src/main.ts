@@ -275,6 +275,7 @@ function pickContextAnim(text: string): AnimName {
 }
 
 // ─── Chat UI ──────────────────────────────────────────────────────────────────
+const MAX_VISIBLE_MESSAGES = 2
 
 function addMsg(role: 'user' | 'assistant' | 'error', text: string): void {
     const log = document.getElementById('chat-log')!
@@ -284,12 +285,16 @@ function addMsg(role: 'user' | 'assistant' | 'error', text: string): void {
         div.className   = 'msg-error'
         div.textContent = `⚠ ${text}`
     } else {
-        div.className   = role === 'user' ? 'msg-user' : 'msg-assistant'
-        div.innerHTML   = `<strong>${role === 'user' ? 'You' : 'Makima'}</strong> ${text.replace(/\n/g, '<br>')}`
+        div.className = role === 'user' ? 'msg-user' : 'msg-assistant'
+        div.innerHTML = `<strong>${role === 'user' ? 'You' : 'Makima'}</strong>${text.replace(/\n/g, '<br>')}`
     }
 
     log.appendChild(div)
-    log.scrollTop = log.scrollHeight
+
+    // Keep only last MAX_VISIBLE_MESSAGES in the DOM
+    while (log.children.length > MAX_VISIBLE_MESSAGES) {
+        log.removeChild(log.firstChild!)
+    }
 }
 
 

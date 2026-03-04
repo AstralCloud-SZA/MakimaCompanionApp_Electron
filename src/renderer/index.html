@@ -4,24 +4,42 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:;" />
+          content="
+      default-src  'self';
+      script-src   'self';
+      style-src    'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src     'self' https://fonts.gstatic.com;
+      img-src      'self' data: blob:;
+      connect-src  'self' blob: http://localhost:* ws://localhost:*;
+      worker-src   blob:;
+    "
+    />
     <title>Makima</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Cinzel:wght@300;400&family=Inter:wght@200;300&display=swap" rel="stylesheet" />
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --red:        #8b0000;
-            --red-bright: #c0392b;
-            --red-glow:   rgba(139, 0, 0, 0.45);
-            --red-dim:    rgba(139, 0, 0, 0.15);
-            --bg-panel:   rgba(6, 2, 8, 0.92);
-            --border:     rgba(139, 0, 0, 0.28);
-            --text:       #e8d5d5;
-            --text-dim:   rgba(232, 213, 213, 0.45);
-            --text-faint: rgba(232, 213, 213, 0.22);
+            /* ── Makima eye palette ─────────────────────── */
+            --iris:        #9b1a1a;       /* deep crimson iris */
+            --iris-bright: #cc2020;       /* lit crimson */
+            --ring1:       #c8960a;       /* outer gold ring */
+            --ring2:       #e8b820;       /* inner gold ring — brighter */
+            --ring-glow:   rgba(200,150,10,0.45);
+            --iris-glow:   rgba(180,20,20,0.5);
+
+            /* ── Surface ────────────────────────────────── */
+            --black:       #040104;
+            --surface:     rgba(4, 1, 4, 0.97);
+            --bone:        #e0d4c8;
+            --bone-dim:    rgba(224, 212, 200, 0.38);
+            --bone-faint:  rgba(224, 212, 200, 0.16);
+
+            /* ── Borders ────────────────────────────────── */
+            --border-gold: rgba(200, 150, 10, 0.28);
+            --border-iris: rgba(155, 26, 26, 0.3);
         }
 
         html, body {
@@ -29,11 +47,12 @@
             background: transparent;
             overflow: hidden;
             font-family: 'Inter', sans-serif;
-            color: var(--text);
+            font-weight: 300;
+            color: var(--bone);
             user-select: none;
         }
 
-        /* ── Canvas — full screen, transparent ───────────────────────────────── */
+        /* ── Canvas ───────────────────────────────────────────────────────────── */
         #vrm-canvas {
             position: fixed;
             inset: 0;
@@ -42,7 +61,7 @@
             z-index: 1;
         }
 
-        /* ── Drag handle — invisible bar at top ──────────────────────────────── */
+        /* ── Drag bar ─────────────────────────────────────────────────────────── */
         #drag-bar {
             position: fixed;
             top: 0; left: 0; right: 0;
@@ -50,206 +69,261 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 14px;
+            padding: 0 16px;
             -webkit-app-region: drag;
-            z-index: 20;
-            background: transparent;
+            z-index: 30;
+            background: linear-gradient(180deg, rgba(4,1,4,0.9) 0%, transparent 100%);
         }
 
         #drag-title {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 11px;
+            font-family: 'Cinzel', serif;
+            font-size: 10px;
             font-weight: 300;
-            letter-spacing: 5px;
+            letter-spacing: 8px;
             text-transform: uppercase;
-            color: rgba(192, 57, 43, 0.55);
+            color: rgba(200, 150, 10, 0.45);
             pointer-events: none;
         }
 
         #win-controls {
             -webkit-app-region: no-drag;
             display: flex;
-            gap: 6px;
+            gap: 3px;
         }
 
         #win-controls button {
-            background: none;
+            background: transparent;
             border: none;
-            color: rgba(232, 213, 213, 0.3);
-            font-size: 13px;
+            color: var(--bone-faint);
+            font-size: 11px;
             cursor: pointer;
-            padding: 2px 7px;
-            border-radius: 3px;
-            transition: color 0.2s, background 0.2s;
-            line-height: 1;
+            width: 26px; height: 22px;
+            border-radius: 2px;
+            transition: color 0.15s, background 0.15s;
+            display: flex; align-items: center; justify-content: center;
         }
 
-        #win-controls button:hover {
-            color: var(--red-bright);
-            background: rgba(139, 0, 0, 0.2);
-        }
+        #win-controls button:hover { color: var(--ring2); background: rgba(180,130,0,0.15); }
+        #btn-close:hover { color: var(--iris-bright) !important; background: rgba(155,26,26,0.25) !important; }
 
-        #btn-close:hover {
-            color: #ff4444 !important;
-            background: rgba(180, 0, 0, 0.3) !important;
-        }
-
-        /* ── Pulse ring top-right ────────────────────────────────────────────── */
-        #status-ring {
+        /* ── Makima eye — concentric crimson + gold rings ─────────────────────── */
+        #eye-mark {
             position: fixed;
-            top: 13px; right: 50px;
-            width: 7px; height: 7px;
-            border-radius: 50%;
-            background: var(--red-bright);
-            box-shadow: 0 0 6px var(--red-bright);
-            animation: ring-pulse 3s ease-in-out infinite;
-            z-index: 20;
+            top: 9px; right: 72px;
+            width: 20px; height: 20px;
+            z-index: 30;
             pointer-events: none;
         }
 
-        @keyframes ring-pulse {
-            0%, 100% { opacity: 0.3; box-shadow: 0 0 4px var(--red); }
-            50%       { opacity: 1.0; box-shadow: 0 0 10px var(--red-bright), 0 0 20px var(--red); }
+        .eye-ring {
+            position: absolute;
+            border-radius: 50%;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
         }
 
-        /* ── Chat panel — only solid part of the UI ──────────────────────────── */
+        /* Outermost — thin gold */
+        .eye-ring:nth-child(1) {
+            width: 20px; height: 20px;
+            border: 1px solid var(--ring1);
+            opacity: 0.6;
+            animation: eye-breathe 4s ease-in-out infinite;
+        }
+
+        /* Second ring — gold slightly brighter */
+        .eye-ring:nth-child(2) {
+            width: 14px; height: 14px;
+            border: 1px solid var(--ring2);
+            opacity: 0.75;
+            animation: eye-breathe 4s ease-in-out infinite 0.4s;
+        }
+
+        /* Third ring — thin gold */
+        .eye-ring:nth-child(3) {
+            width: 9px; height: 9px;
+            border: 1px solid var(--ring1);
+            opacity: 0.6;
+            animation: eye-breathe 4s ease-in-out infinite 0.8s;
+        }
+
+        /* Core — crimson iris */
+        .eye-ring:nth-child(4) {
+            width: 5px; height: 5px;
+            background: var(--iris-bright);
+            box-shadow: 0 0 5px var(--iris-bright), 0 0 10px var(--iris-glow);
+            animation: iris-pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes eye-breathe {
+            0%, 100% { opacity: 0.25; }
+            50%       { opacity: 0.85; box-shadow: 0 0 6px var(--ring-glow); }
+        }
+
+        @keyframes iris-pulse {
+            0%, 100% { opacity: 0.5; box-shadow: 0 0 3px var(--iris); }
+            50%       { opacity: 1;   box-shadow: 0 0 8px var(--iris-bright), 0 0 16px var(--iris-glow); }
+        }
+
+        /* ── Chat panel ───────────────────────────────────────────────────────── */
         #chat-panel {
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            padding: 0 22px 18px;
+            padding: 0 26px 22px;
+            z-index: 10;
             background: linear-gradient(
                     0deg,
-                    var(--bg-panel) 0%,
-                    rgba(6, 2, 8, 0.88) 65%,
-                    transparent 100%
+                    rgba(4,1,4,0.99) 0%,
+                    rgba(4,1,4,0.97) 45%,
+                    rgba(4,1,4,0.65) 78%,
+                    transparent      100%
             );
-            z-index: 10;
         }
 
+        /* gold + crimson top rule */
         #chat-panel::before {
             content: '';
             display: block;
             height: 1px;
-            margin-bottom: 10px;
+            margin-bottom: 14px;
             background: linear-gradient(90deg,
-            transparent 0%,
-            var(--red) 25%,
-            var(--red-bright) 50%,
-            var(--red) 75%,
-            transparent 100%);
-            opacity: 0.3;
+            transparent        0%,
+            var(--iris)        15%,
+            var(--ring1)       40%,
+            var(--ring2)       50%,
+            var(--ring1)       60%,
+            var(--iris)        85%,
+            transparent        100%);
+            opacity: 0.6;
         }
 
-        /* ── Chat log ────────────────────────────────────────────────────────── */
+        /* ── Chat log — 2 messages max ────────────────────────────────────────── */
         #chat-log {
-            max-height: 190px;
-            overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 5px;
-            margin-bottom: 11px;
-            padding-right: 4px;
+            gap: 0;
+            margin-bottom: 16px;
         }
 
-        #chat-log::-webkit-scrollbar       { width: 2px; }
-        #chat-log::-webkit-scrollbar-track { background: transparent; }
-        #chat-log::-webkit-scrollbar-thumb { background: var(--red); border-radius: 2px; }
+        /* older message — very faded */
+        #chat-log div:first-child:not(:last-child) {
+            opacity: 0.22;
+        }
+
+        #chat-log div:last-child {
+            opacity: 1;
+        }
 
         #chat-log div {
-            font-size: 0.84rem;
-            line-height: 1.55;
-            padding: 5px 10px;
-            border-radius: 3px;
-            border-left: 2px solid transparent;
+            font-size: 0.87rem;
+            line-height: 1.65;
+            padding: 7px 14px;
+            position: relative;
+            transition: opacity 0.5s;
         }
 
-        .msg-user {
-            border-left-color: rgba(232, 213, 213, 0.18) !important;
-            background: rgba(255, 255, 255, 0.02);
+        #chat-log div::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 9px; bottom: 9px;
+            width: 2px;
+            border-radius: 1px;
         }
 
-        .msg-assistant {
-            border-left-color: var(--red) !important;
-            background: rgba(139, 0, 0, 0.07);
+        .msg-user::before {
+            background: var(--bone-faint);
         }
 
-        .msg-error {
-            border-left-color: #ff4444 !important;
-            background: rgba(255, 50, 50, 0.06);
-            color: #ff6b6b;
-            font-size: 0.78rem !important;
+        .msg-assistant::before {
+            background: linear-gradient(180deg, var(--ring2), var(--iris-bright));
+            box-shadow: 0 0 6px var(--ring-glow);
         }
 
+        .msg-error::before { background: var(--iris-bright); }
+
+        .msg-user      { background: rgba(255,255,255,0.015); }
+        .msg-assistant { background: rgba(155,26,26,0.06); }
+        .msg-error     { background: rgba(155,26,26,0.08); color: #e05050; font-size: 0.78rem !important; }
+
+        /* name label */
         #chat-log div strong {
-            font-weight: 400;
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 0.93rem;
-            letter-spacing: 0.5px;
-            margin-right: 4px;
+            display: inline-block;
+            font-family: 'Cinzel', serif;
+            font-weight: 300;
+            font-size: 0.72rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-right: 10px;
         }
 
-        .msg-user strong     { color: var(--text-dim); }
-        .msg-assistant strong { color: var(--red-bright); }
+        .msg-user strong      { color: var(--bone-dim); }
+        .msg-assistant strong {
+            color: var(--ring2);
+            text-shadow: 0 0 8px var(--ring-glow);
+        }
 
-        /* ── Input row ───────────────────────────────────────────────────────── */
+        /* ── Input row ────────────────────────────────────────────────────────── */
         #chat-form {
             display: flex;
-            gap: 9px;
-            align-items: center;
+            gap: 12px;
+            align-items: flex-end;
         }
 
         #chat-input {
             flex: 1;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border);
-            border-bottom-color: rgba(139, 0, 0, 0.55);
-            border-radius: 3px;
-            padding: 8px 13px;
-            color: var(--text);
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(200,150,10,0.35);
+            border-radius: 0;
+            padding: 8px 0;
+            color: var(--bone);
             font-family: 'Inter', sans-serif;
-            font-size: 0.87rem;
+            font-size: 0.88rem;
             font-weight: 300;
             outline: none;
-            transition: border-color 0.2s, background 0.2s;
-            letter-spacing: 0.2px;
+            letter-spacing: 0.4px;
+            transition: border-color 0.25s;
         }
 
         #chat-input:focus {
-            background: rgba(139, 0, 0, 0.06);
-            border-color: rgba(139, 0, 0, 0.55);
-            border-bottom-color: var(--red-bright);
+            border-bottom-color: var(--ring2);
         }
 
-        #chat-input::placeholder { color: var(--text-faint); font-style: italic; }
+        #chat-input::placeholder {
+            color: var(--bone-faint);
+            font-style: italic;
+            letter-spacing: 1.5px;
+        }
 
         #send-btn {
-            background: var(--red-dim);
-            border: 1px solid var(--border);
-            border-bottom-color: var(--red);
-            border-radius: 3px;
-            color: var(--red-bright);
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 0.95rem;
-            letter-spacing: 2px;
-            padding: 7px 16px;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid var(--ring1);
+            color: var(--ring1);
+            font-family: 'Cinzel', serif;
+            font-size: 0.75rem;
+            font-weight: 300;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            padding: 8px 14px 8px 10px;
             cursor: pointer;
-            transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+            transition: color 0.2s, border-color 0.2s, text-shadow 0.2s;
         }
 
         #send-btn:hover {
-            background: rgba(139, 0, 0, 0.28);
-            color: #ff5555;
-            box-shadow: 0 0 10px var(--red-glow);
+            color: var(--ring2);
+            border-bottom-color: var(--ring2);
+            text-shadow: 0 0 10px var(--ring-glow);
         }
 
-        /* ── Status ──────────────────────────────────────────────────────────── */
+        /* ── Status ───────────────────────────────────────────────────────────── */
         #status {
-            margin-top: 6px;
-            font-size: 0.7rem;
-            letter-spacing: 1.5px;
+            margin-top: 8px;
+            font-size: 0.65rem;
+            letter-spacing: 2.5px;
             text-transform: uppercase;
-            color: var(--text-faint);
+            color: var(--bone-faint);
             text-align: right;
+            font-family: 'Cinzel', serif;
             font-weight: 300;
             transition: color 0.3s;
         }
@@ -257,7 +331,6 @@
 </head>
 <body>
 
-<!-- Frameless drag bar with window controls -->
 <div id="drag-bar">
     <span id="drag-title">Makima</span>
     <div id="win-controls">
@@ -266,20 +339,23 @@
     </div>
 </div>
 
-<!-- Pulse ring -->
-<div id="status-ring"></div>
+<!-- Makima's eye rings: 3 gold + 1 crimson core -->
+<div id="eye-mark">
+    <div class="eye-ring"></div>
+    <div class="eye-ring"></div>
+    <div class="eye-ring"></div>
+    <div class="eye-ring"></div>
+</div>
 
-<!-- 3D canvas — transparent background shows through -->
 <canvas id="vrm-canvas"></canvas>
 
-<!-- Chat panel — only opaque part -->
 <div id="chat-panel">
     <div id="chat-log"></div>
     <form id="chat-form" autocomplete="off">
-        <input id="chat-input" type="text" placeholder="Speak…" spellcheck="false" />
-        <button id="send-btn" type="submit">Send</button>
+        <input id="chat-input" type="text" placeholder="speak…" spellcheck="false" />
+        <button id="send-btn" type="submit">Speak</button>
     </form>
-    <div id="status">Connecting…</div>
+    <div id="status">—</div>
 </div>
 
 <script type="module" src="./src/main.ts"></script>
