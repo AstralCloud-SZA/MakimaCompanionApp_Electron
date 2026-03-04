@@ -1,5 +1,5 @@
-import { resolve } from 'path';
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
+import { resolve } from 'path'
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 
 export default defineConfig({
     main: {
@@ -9,10 +9,11 @@ export default defineConfig({
         plugins: [externalizeDepsPlugin()],
     },
     renderer: {
+        publicDir: resolve('resources'),   // ← this is the fix
         resolve: {
             alias: {
                 '@renderer': resolve('src/renderer/src'),
             },
         },
     },
-});
+})

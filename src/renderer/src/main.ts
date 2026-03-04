@@ -279,15 +279,19 @@ function pickContextAnim(text: string): AnimName {
 function addMsg(role: 'user' | 'assistant' | 'error', text: string): void {
     const log = document.getElementById('chat-log')!
     const div = document.createElement('div')
+
     if (role === 'error') {
-        div.style.cssText = 'color:#f87171;font-size:0.8rem;padding:4px 0'
-        div.textContent   = `⚠ ${text}`
+        div.className   = 'msg-error'
+        div.textContent = `⚠ ${text}`
     } else {
-        div.innerHTML = `<strong>${role === 'user' ? 'You' : 'Makima'}:</strong> ${text.replace(/\n/g, '<br>')}`
+        div.className   = role === 'user' ? 'msg-user' : 'msg-assistant'
+        div.innerHTML   = `<strong>${role === 'user' ? 'You' : 'Makima'}</strong> ${text.replace(/\n/g, '<br>')}`
     }
+
     log.appendChild(div)
     log.scrollTop = log.scrollHeight
 }
+
 
 async function sendMessage(text: string): Promise<void> {
     if (!text.trim()) return

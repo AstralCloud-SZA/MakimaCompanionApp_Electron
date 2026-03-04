@@ -1,6 +1,9 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('makima', {
-    chat:   (messages: { role: string; content: string }[]) => ipcRenderer.invoke('ollama:chat', messages),
-    health: ()                                               => ipcRenderer.invoke('ollama:health'),
-});
+    ollamaCheck: (): Promise<{ ok: boolean; models?: string[]; error?: string }> =>
+        ipcRenderer.invoke('ollama:health'),
+
+    ollamaChat: (messages: { role: string; content: string }[]): Promise<string> =>
+        ipcRenderer.invoke('ollama:chat', messages),
+})
