@@ -14,6 +14,7 @@ function createWindow(): void {
         frame:       false,
         transparent: true,
         hasShadow:   true,
+        icon:        join(__dirname, '../../build/icon2.ico'),
         webPreferences: {
             preload:          join(__dirname, '../preload/index.js'),
             contextIsolation: true,
