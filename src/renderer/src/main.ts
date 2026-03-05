@@ -1,12 +1,11 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
-import { Animations_VRM, TALK_ANIMS, VRM_PATH,VRM_INTERNAL_BONES  } from './animations_VRM'
+import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation'
+import { Animations_VRM, TALK_ANIMS, VRM_PATH, VRM_INTERNAL_BONES } from './animations_VRM'
 import type { AnimName } from './animations_VRM'
-import { BONE_MAP } from './bonemap'
+import { BONE_MAP } from './bonemap'                // ← kept as backup, not actively used
 import { AUTONOMOUS_PROMPTS } from './prompts'
-
-
 
 // ─── System prompt ────────────────────────────────────────────────────────────
 
@@ -31,7 +30,6 @@ let idleTimer:     number | null = null
 let autoTimer:     number | null = null
 let lastUserTime   = Date.now()
 
-// CHANGE 1: Removed targetSceneY and headWorldPos — no longer needed
 const clock        = new THREE.Clock()
 const clipCache    = new Map<AnimName, THREE.AnimationClip>()
 const chatHistory: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
@@ -52,8 +50,8 @@ function initScene(): void {
     scene  = new THREE.Scene()
 
     camera = new THREE.PerspectiveCamera(28, window.innerWidth / window.innerHeight, 0.1, 20)
-    camera.position.set(0, 1.65, 2.5)
-    camera.lookAt(0, 1.4, 0)
+    camera.position.set(0, 1.0, 4.58)   // ← Z further back, Y lower
+    camera.lookAt(0, 0.9, 0)           // ← look at mid-torso to centre full body
 
     renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
     renderer.setSize(window.innerWidth, window.innerHeight)
@@ -83,31 +81,20 @@ function initScene(): void {
 function renderLoop(): void {
     requestAnimationFrame(renderLoop)
     const delta = clock.getDelta()
-
-    // CHANGE 2: mixer updates BEFORE vrm — bones must be posed before VRM
-    // spring bones and constraints run on them
-    mixer?.update(delta)
-    vrm?.update(delta)
-
-    // CHANGE 3: Removed the head drift tracking block entirely.
-    // It was accumulating targetSceneY every frame causing a feedback
-    // loop that fought the animation and made the model jitter up/down.
-    // Model stays fixed at Y=0.85 where it was placed on load.
-
+    mixer?.update(delta)   // mixer first — poses the bones
+    vrm?.update(delta)     // vrm second — spring bones simulate on posed skeleton
     renderer.render(scene, camera)
 }
 
-// ───LOAD VRM ──────────────────────────────────────────────────────────────────────
+// ─── VRM ──────────────────────────────────────────────────────────────────────
 
-function loadVRM(): void
-{
+function loadVRM(): void {
     setStatus('Loading…')
     const loader = new GLTFLoader()
     loader.register(p => new VRMLoaderPlugin(p))
     loader.load(
         VRM_PATH,
-        gltf =>
-        {                                           // ✅ single arrow
+        gltf => {
             const loadedVrm = gltf.userData.vrm as any
             if (!loadedVrm || !loadedVrm.humanoid) {
                 console.error('Not a valid VRM:', VRM_PATH)
@@ -122,7 +109,7 @@ function loadVRM(): void
 
             vrm.humanoid.resetNormalizedPose()
             vrm.scene.rotation.y = 0
-            vrm.scene.position.set(0, 0.85, 0)
+            vrm.scene.position.set(0, 0.2385, 0)
             if (vrm.lookAt) vrm.lookAt.enabled = false
 
             scene.add(vrm.scene)
@@ -140,10 +127,7 @@ function loadVRM(): void
     )
 }
 
-
-// ─── VRMA — retarget and cache ────────────────────────────────────────────────
-
-
+// ─── VRMA — load and cache via VRMAnimationLoaderPlugin ──────────────────────
 
 async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
     if (clipCache.has(name)) return clipCache.get(name)!
@@ -151,41 +135,21 @@ async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
     return new Promise((resolve, reject) => {
         const loader = new GLTFLoader()
         loader.register(p => new VRMLoaderPlugin(p))
+        loader.register(p => new VRMAnimationLoaderPlugin(p))
         loader.load(
             Animations_VRM[name],
             gltf => {
-                if (!gltf.animations?.length) { reject(new Error('No animations')); return }
-
-                const clip   = gltf.animations[0]
-                const tracks: THREE.KeyframeTrack[] = []
-
-                for (const track of clip.tracks) {
-                    const dot  = track.name.indexOf('.')
-                    if (dot === -1) continue
-                    const bone = track.name.slice(0, dot)
-                    const prop = track.name.slice(dot)
-
-                    if (VRM_INTERNAL_BONES.has(bone)) continue
-
-                    const target = bone.startsWith('J_Bip_') || bone.startsWith('J_Adj_')
-                        ? bone
-                        : BONE_MAP[bone]
-                    if (!target) continue
-
-                    const T = track.constructor as any
-                    tracks.push(new T(target + prop, track.times, track.values))
-                }
-
-                if (tracks.length === 0) {
-                    const found = [...new Set(clip.tracks.map(t => t.name.slice(0, t.name.indexOf('.'))))]
-                    console.warn(`[${name}] retargeting failed. Bones:`, found)
-                    reject(new Error('Retargeting failed'))
+                const vrmAnimations = gltf.userData.vrmAnimations
+                if (!vrmAnimations?.length) {
+                    reject(new Error('No VRM animations in: ' + Animations_VRM[name]))
                     return
                 }
-
-                const retargeted = new THREE.AnimationClip(`anim_${name}`, clip.duration, tracks)
-                clipCache.set(name, retargeted)
-                resolve(retargeted)
+                // createVRMAnimationClip applies through humanoid (normalized space)
+                // BONE_MAP / VRM_INTERNAL_BONES kept in imports as manual fallback
+                // if switching back to raw retargeting is ever needed
+                const clip = createVRMAnimationClip(vrmAnimations[0], vrm)
+                clipCache.set(name, clip)
+                resolve(clip)
             },
             undefined,
             err => reject(err)
@@ -212,13 +176,6 @@ async function playAnim(name: AnimName): Promise<void> {
         nextAction.setEffectiveTimeScale(1)
         nextAction.setEffectiveWeight(1)
 
-        // CHANGE 6: Switched from crossFadeFrom to crossFadeTo.
-        // crossFadeFrom(prev) is called on the NEXT action and schedules
-        // the fade internally, but does not stop the old action from
-        // continuing to write bone transforms at full weight during the
-        // transition — causing a visible snap.
-        // crossFadeTo(next) is called on the OLD action, which correctly
-        // ramps its weight to 0 while next ramps to 1 simultaneously.
         if (currentAction && currentAction !== nextAction) {
             currentAction.crossFadeTo(nextAction, 0.5, true)
         }

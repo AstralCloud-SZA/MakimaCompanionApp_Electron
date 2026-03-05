@@ -4,24 +4,25 @@
   "description": "Makima AI Holographic Companion",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev":      "electron-vite dev",
-    "build":    "electron-vite build",
-    "preview":  "electron-vite preview",
-    "dist":     "electron-vite build && electron-builder",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "dist": "electron-vite build && electron-builder",
     "dist:dir": "electron-vite build && electron-builder --dir"
   },
   "dependencies": {
     "@pixiv/three-vrm": "^2.1.3",
+    "@pixiv/three-vrm-animation": "^3.5.0",
     "three": "^0.164.1"
   },
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.1",
-    "@electron-toolkit/utils":  "^3.0.0",
-    "@types/three":              "^0.164.0",
-    "electron":                  "33.3.1",
-    "electron-builder":          "25.1.8",
-    "electron-vite":             "2.3.0",
-    "typescript":                "^5.6.3",
-    "vite":                      "5.4.10"
+    "@electron-toolkit/utils": "^3.0.0",
+    "@types/three": "^0.164.0",
+    "electron": "33.3.1",
+    "electron-builder": "25.1.8",
+    "electron-vite": "2.3.0",
+    "typescript": "^5.6.3",
+    "vite": "5.4.10"
   }
 }
