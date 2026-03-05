@@ -10,7 +10,7 @@ const BASE = window.location.protocol === 'file:'
     ? './resources/models'
     : './models'
 
-const VRM_PATH = `${BASE}/8559372518173948307.vrm`
+const VRM_PATH = `${BASE}/makimaModel.vrm`
 
 const ANIMATIONS = {
     idle:     `${BASE}/animations/V_HIMEHINA.vrma`,
@@ -125,7 +125,8 @@ const chatHistory: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
-function setStatus(text: string, color = 'rgba(224,212,200,0.18)'): void {
+function setStatus(text: string, color = 'rgba(224,212,200,0.18)'): void
+{
     const el = document.getElementById('status')
     if (!el) return
     el.textContent = text
@@ -134,7 +135,8 @@ function setStatus(text: string, color = 'rgba(224,212,200,0.18)'): void {
 
 // ─── Scene ────────────────────────────────────────────────────────────────────
 
-function initScene(): void {
+function initScene(): void
+{
     const canvas = document.getElementById('vrm-canvas') as HTMLCanvasElement
     scene  = new THREE.Scene()
 
@@ -158,7 +160,8 @@ function initScene(): void {
 
     scene.add(new THREE.AmbientLight(0x201015, 0.8))
 
-    window.addEventListener('resize', () => {
+    window.addEventListener('resize', () =>
+    {
         camera.aspect = window.innerWidth / window.innerHeight
         camera.updateProjectionMatrix()
         renderer.setSize(window.innerWidth, window.innerHeight)
@@ -167,18 +170,21 @@ function initScene(): void {
 
 // ─── Render loop — with dynamic Y correction ──────────────────────────────────
 
-function renderLoop(): void {
+function renderLoop(): void
+{
     requestAnimationFrame(renderLoop)
     const delta = clock.getDelta()
-    vrm?.update(delta)
-    mixer?.update(delta)
 
-    // Keep head visible regardless of what animation drives the root bone
-    if (vrm) {
-        const headBone = vrm.humanoid?.getRawBoneNode('head')
-        if (headBone) {
+    if (vrm) vrm.update(delta)
+    if (mixer) mixer.update(delta)
+
+    // Head tracking only if vrm is loaded
+    if (vrm?.humanoid)
+    {
+        const headBone = vrm.humanoid.getRawBoneNode('head')
+        if (headBone)
+        {
             headBone.getWorldPosition(headWorldPos)
-            // Target head world Y ~ 1.55 (upper third of camera view)
             const drift = 1.55 - headWorldPos.y
             targetSceneY += drift * 0.06
             vrm.scene.position.y += (targetSceneY - vrm.scene.position.y) * 0.08
@@ -188,36 +194,54 @@ function renderLoop(): void {
     renderer.render(scene, camera)
 }
 
+
 // ─── VRM ──────────────────────────────────────────────────────────────────────
 
-function loadVRM(): void {
+function loadVRM(): void
+{
     setStatus('Loading…')
     const loader = new GLTFLoader()
     loader.register(p => new VRMLoaderPlugin(p))
     loader.load(
         VRM_PATH,
-        gltf => {
-            vrm.humanoid?.resetNormalizedPose()
+        gltf =>
+        {
+            // Extract vrm from gltf
+            const loadedVrm = gltf.userData.vrm as any
+            if (!loadedVrm || !loadedVrm.humanoid)
+            {
+                console.error('Not a valid VRM:', VRM_PATH)
+                setStatus('Invalid VRM file', '#cc2020')
+                return
+            }
+
+            // Assign to your global vrm variable
+            vrm = loadedVrm  // ✅ Uses your existing let vrm: any = null
+
+            vrm.humanoid.resetNormalizedPose()
             vrm.scene.rotation.y = 0
             vrm.scene.position.set(0, 0.85, 0)
             targetSceneY = 0.85
 
-              // Disable lookAt — animations drive the eyes, not the VRM system
             if (vrm.lookAt) vrm.lookAt.enabled = false
 
             scene.add(vrm.scene)
             vrm.scene.traverse((obj: any) => { obj.frustumCulled = false })
+
             mixer = new THREE.AnimationMixer(vrm.scene)
             setStatus('—')
             setTimeout(() => playAnim('idle'), 400)
         },
         undefined,
-        err => {
+        err =>
+        {
             console.error('VRM load error:', err)
             setStatus('Model load failed', '#cc2020')
         }
     )
 }
+
+
 
 // ─── VRMA — retarget and cache ────────────────────────────────────────────────
 
@@ -229,21 +253,25 @@ const VRM_INTERNAL_BONES = new Set
     'LeftEye', 'RightEye',
 ])
 
-async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
+async function getClip(name: AnimName): Promise<THREE.AnimationClip>
+{
     if (clipCache.has(name)) return clipCache.get(name)!
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) =>
+    {
         const loader = new GLTFLoader()
         loader.register(p => new VRMLoaderPlugin(p))
         loader.load(
             ANIMATIONS[name],
-            gltf => {
+            gltf =>
+            {
                 if (!gltf.animations?.length) { reject(new Error('No animations')); return }
 
                 const clip   = gltf.animations[0]
                 const tracks: THREE.KeyframeTrack[] = []
 
-                for (const track of clip.tracks) {
+                for (const track of clip.tracks)
+                {
                     const dot  = track.name.indexOf('.')
                     if (dot === -1) continue
                     const bone = track.name.slice(0, dot)
@@ -261,7 +289,8 @@ async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
                     tracks.push(new T(target + prop, track.times, track.values))
                 }
 
-                if (tracks.length === 0) {
+                if (tracks.length === 0)
+                {
                     const found = [...new Set(clip.tracks.map(t => t.name.slice(0, t.name.indexOf('.'))))]
                     console.warn(`[${name}] retargeting failed. Bones:`, found)
                     reject(new Error('Retargeting failed'))
@@ -280,13 +309,15 @@ async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
 
 // ─── Animation ────────────────────────────────────────────────────────────────
 
-async function playAnim(name: AnimName): Promise<void> {
+async function playAnim(name: AnimName): Promise<void>
+{
     if (!mixer) return
     if (animLocked) { pendingAnim = name; return }
     if (currentAnim === name) return
 
     animLocked = true
-    try {
+    try
+    {
         const clip       = await getClip(name)
         const nextAction = mixer.clipAction(clip)
 
@@ -296,7 +327,8 @@ async function playAnim(name: AnimName): Promise<void> {
         nextAction.setEffectiveTimeScale(1).setEffectiveWeight(1)
         nextAction.reset()
 
-        if (currentAction) {
+        if (currentAction)
+        {
             nextAction.crossFadeFrom(currentAction, 0.4, true)
         }
 
@@ -307,7 +339,8 @@ async function playAnim(name: AnimName): Promise<void> {
         console.error(`Animation error [${name}]:`, e)
     } finally {
         animLocked = false
-        if (pendingAnim && pendingAnim !== currentAnim) {
+        if (pendingAnim && pendingAnim !== currentAnim)
+        {
             const next  = pendingAnim
             pendingAnim = null
             playAnim(next)
