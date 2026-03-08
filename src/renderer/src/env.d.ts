@@ -5,11 +5,13 @@ interface ChatMessage {
     content: string
 }
 
+// src/renderer/env.d.ts  (fixed)
 interface Window {
     makima: {
         minimize:    () => void
         close:       () => void
         ollamaCheck: () => Promise<{ ok: boolean; models?: string[]; error?: string }>
         ollamaChat:  (messages: ChatMessage[]) => Promise<string>
+        onToken:     (cb: (token: string) => void) => (() => void)
     }
 }

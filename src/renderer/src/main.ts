@@ -239,9 +239,27 @@ async function sendMessage(text: string): Promise<void> {
     await playAnim(pickContextAnim(text))
     setStatus('…')
     try {
+        // ─── Create streaming message bubble ──────────────────────────────
+        const log       = document.getElementById('chat-log')!
+        const streamDiv = document.createElement('div')
+        const textSpan  = document.createElement('span')
+        streamDiv.className = 'msg-assistant'
+        streamDiv.innerHTML = '<strong>Makima</strong>'
+        streamDiv.appendChild(textSpan)
+        log.appendChild(streamDiv)
+        while (log.children.length > MAX_MSGS) log.removeChild(log.firstChild!)
+
+        // ─── Subscribe to tokens ──────────────────────────────────────────
+        const unsub = window.makima.onToken((token: string) => {
+            textSpan.textContent += token
+            log.scrollTop = log.scrollHeight
+        })
+
+        // ─── Await full reply (streaming happens in background) ───────────
         const reply = await window.makima.ollamaChat(chatHistory)
+        unsub()   // stop listening
+
         chatHistory.push({ role: 'assistant', content: reply })
-        addMsg('assistant', reply)
         setStatus('—')
         scheduleIdle(6000)
         scheduleAutonomous()
@@ -291,9 +309,9 @@ async function checkOllama(): Promise<void> {
             setStatus('Offline', '#cc2020')
             return
         }
-        const hasModel = result.models?.some(m => m.startsWith('gemma2:2b'))
+        const hasModel = result.models?.some(m => m.startsWith('gemma3:12b'))
         if (!hasModel) {
-            addMsg('error', 'gemma2:2b not found — run: ollama pull gemma2:2b')
+            addMsg('error', 'gemma3:12b not found — run: ollama pull gemma3:12b')
             setStatus('Model missing', '#c8960a')
             return
         }

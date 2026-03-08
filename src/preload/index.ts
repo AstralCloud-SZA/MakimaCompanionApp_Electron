@@ -9,4 +9,10 @@ contextBridge.exposeInMainWorld('makima', {
 
     ollamaChat: (messages: { role: string; content: string }[]): Promise<string> =>
         ipcRenderer.invoke('ollama:chat', messages),
+
+    onToken: (cb: (token: string) => void): (() => void) => {
+        const handler = (_e: Electron.IpcRendererEvent, token: string) => cb(token)
+        ipcRenderer.on('ollama:token', handler)
+        return () => ipcRenderer.removeListener('ollama:token', handler)
+    },
 })
