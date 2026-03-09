@@ -9,10 +9,10 @@ import json
 import base64
 import io
 import soundfile as sf
-from kokoro_tts import KokoroTTS
+from kokoro_tts import  Kokoro
 
 # Load model once on startup (uses your RTX 5070 Ti CUDA)
-tts = KokoroTTS()
+tts = Kokoro()
 VOICE_REF = "makima_voice.wav"  # Put your sample here
 
 print("✅ Kokoro TTS sidecar ready", file=sys.stderr, flush=True)
