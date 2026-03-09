@@ -250,7 +250,8 @@ async function sendMessage(text: string): Promise<void> {
         while (log.children.length > MAX_MSGS) log.removeChild(log.firstChild!)
 
         // ─── Subscribe to tokens ──────────────────────────────────────────
-        const unsub = window.makima.onToken((token: string) => {
+        const unsub = window.makima.onToken((token: string) =>
+        {
             textSpan.textContent += token
             log.scrollTop = log.scrollHeight
         })
@@ -273,9 +274,11 @@ async function sendMessage(text: string): Promise<void> {
 
 // ─── Makima autonomous engagement ────────────────────────────────────────────
 
-async function makimaSpeaks(trigger: string): Promise<void> {
+async function makimaSpeaks(trigger: string): Promise<void>
+{
     chatHistory.push({ role: 'user', content: trigger })
-    try {
+    try
+    {
         await playAnim(TALK_ANIMS[Math.floor(Math.random() * TALK_ANIMS.length)])
         const reply = await window.makima.ollamaChat(chatHistory)
         chatHistory.push({ role: 'assistant', content: reply })
