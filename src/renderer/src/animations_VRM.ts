@@ -1,11 +1,11 @@
 // animations_VRM.ts
 
-const BASE = window.location.protocol === 'file:' ? './resources/models' : './models'
+const isProd = window.location.protocol === 'file:'
+const BASE   = isProd ? 'asset://models' : './models'
 
 export const VRM_PATH = `${BASE}/makimaModel.vrm`
 
-export const Animations_VRM =
-    {
+export const Animations_VRM = {
     idle:     `${BASE}/animations/V_HIMEHINA.vrma`,
     standing: `${BASE}/animations/VRMA_01.vrma`,
     greeting: `${BASE}/animations/VRMA_02.vrma`,

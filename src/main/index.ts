@@ -1,11 +1,35 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, protocol, net } from 'electron'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { is } from '@electron-toolkit/utils'
 import { spawn, ChildProcess } from 'child_process'
 import { existsSync } from 'fs'
 
 const MODEL_NAME = 'gemma3:12b'
 const OLLAMA_URL = 'http://localhost:11434/api/chat'
+const TTS_SCRIPT = 'tts_kokoro.py'
+
+// ─── Must be before app ready ─────────────────────────────────────────────────
+
+protocol.registerSchemesAsPrivileged([{
+    scheme:     'asset',
+    privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true }
+}])
+
+// ─── Asset protocol ───────────────────────────────────────────────────────────
+// asset://models/makimaModel.vrm
+//   dev  → <projectRoot>/resources/models/makimaModel.vrm
+//   prod → <resourcesPath>/models/makimaModel.vrm
+
+function registerAssetProtocol(): void {
+    protocol.handle('asset', (request) => {
+        const assetPath = request.url.replace('asset://', '')
+        const filePath  = is.dev
+            ? join(__dirname, '../../../resources', assetPath)
+            : join(process.resourcesPath, assetPath)
+        return net.fetch(pathToFileURL(filePath).toString())
+    })
+}
 
 // ─── TTS Server ───────────────────────────────────────────────────────────────
 
@@ -18,25 +42,35 @@ function getSidecarPath(): string {
 }
 
 function getPythonPath(): string {
+    if (!is.dev) {
+        const exe = join(process.resourcesPath, 'sidecar', 'tts_server.exe')
+        if (existsSync(exe)) return exe
+    }
     const venvPython = join(getSidecarPath(), 'venv', 'Scripts', 'python.exe')
     return existsSync(venvPython) ? venvPython : 'python'
 }
 
 function startTTSServer(): void {
-    if (ttsProcess) return  // already running
+    if (ttsProcess) return
 
+    const isProd       = !is.dev
+    const exePath      = join(process.resourcesPath, 'sidecar', 'tts_server.exe')
     const sidecarPath  = getSidecarPath()
     const pythonPath   = getPythonPath()
-    const serverScript = join(sidecarPath, 'tts_server.py')
+    const serverScript = join(sidecarPath, TTS_SCRIPT)
 
-    if (!existsSync(serverScript)) {
+    if (!isProd && !existsSync(serverScript)) {
         console.error('TTS server script not found:', serverScript)
         return
     }
 
-    console.log('Starting TTS server...')
+    const cmd  = isProd ? exePath : pythonPath
+    const args = isProd ? []      : [serverScript]
 
-    ttsProcess = spawn(pythonPath, [serverScript], {
+    console.log('Starting TTS server...')
+    console.log('cmd:', cmd, 'args:', args)
+
+    ttsProcess = spawn(cmd, args, {
         cwd:   sidecarPath,
         stdio: 'pipe',
         env:   { ...process.env, PYTHONIOENCODING: 'utf-8' }
@@ -59,7 +93,7 @@ function stopTTSServer(): void {
 }
 
 async function waitForTTS(retries = 30, delayMs = 2000): Promise<boolean> {
-    await new Promise(r => setTimeout(r, 3000))  // give Python 3s head start
+    await new Promise(r => setTimeout(r, 3000))
     for (let i = 0; i < retries; i++) {
         try {
             const res = await fetch('http://127.0.0.1:5002/health')
@@ -73,7 +107,7 @@ async function waitForTTS(retries = 30, delayMs = 2000): Promise<boolean> {
     return false
 }
 
-// ─── Ollama ───────────────────────────────────────────────────────────────────
+// ─── Ollama (external — spawn only if not already running) ───────────────────
 
 let ollamaProcess: ChildProcess | null = null
 
@@ -134,9 +168,27 @@ function createWindow(): void {
             preload:          join(__dirname, '../preload/index.js'),
             contextIsolation: true,
             nodeIntegration:  false,
-            webSecurity:      false,
-            sandbox:          false,
+            webSecurity:      true,   // ✅ safe — asset:// protocol covers local files
+            sandbox:          true,   // ✅ hardened
         },
+    })
+
+    // ─── Content Security Policy ──────────────────────────────────────────────
+    win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+            responseHeaders: {
+                ...details.responseHeaders,
+                'Content-Security-Policy': [
+                    "default-src 'self' asset:; " +
+                    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                    "font-src 'self' asset: data: https://fonts.gstatic.com; " +
+                    "script-src 'self' 'unsafe-inline'; " +
+                    "connect-src 'self' http://localhost:11434 http://127.0.0.1:5002; " +
+                    "media-src 'self' blob: asset:; " +
+                    "img-src 'self' data: blob: asset:;"
+                ]
+            }
+        })
     })
 
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -150,9 +202,10 @@ function createWindow(): void {
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
+    registerAssetProtocol()
     startOllama()
     await waitForOllama()
-    createWindow()  // TTS only starts when user toggles it on
+    createWindow()
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -181,17 +234,8 @@ ipcMain.on('window:close',    () => {
 
 // ─── TTS on-demand ────────────────────────────────────────────────────────────
 
-ipcMain.handle('tts:start', async () => {
-    startTTSServer()
-    const ok = await waitForTTS()
-    return { ok }
-})
-
-ipcMain.handle('tts:stop', async () => {
-    stopTTSServer()
-    return { ok: true }
-})
-
+ipcMain.handle('tts:start',  async () => { startTTSServer(); return { ok: await waitForTTS() } })
+ipcMain.handle('tts:stop',   async () => { stopTTSServer(); return { ok: true } })
 ipcMain.handle('tts:health', async () => {
     try {
         const res = await fetch('http://127.0.0.1:5002/health')
@@ -224,10 +268,9 @@ ipcMain.handle('ollama:chat', async (_e, messages: { role: string; content: stri
                 const token = (JSON.parse(line).message?.content ?? '') as string
                 fullContent += token
                 win?.webContents.send('ollama:token', token)
-            } catch { /* malformed chunk — skip */ }
+            } catch { /* skip malformed chunk */ }
         }
     }
-
     return fullContent
 })
 
