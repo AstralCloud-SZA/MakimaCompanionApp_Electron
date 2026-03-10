@@ -1,16 +1,17 @@
 import torch
 import soundfile as sf
-from kokoro import KokoroPipeline
-from flask import Flask, request, send_file
-import io
-import os
+import numpy as np
+from flask import Flask, Response, request
+from flask_cors import CORS
+from kokoro.pipeline import KPipeline
 
 app = Flask(__name__)
+CORS(app)
 
-# Load Kokoro with your cloned Makima voice
-pipeline = KokoroPipeline.from_pretrained("prince-canute/kokoro-v1.0")
+print("✅ Loading kokoro...")
+pipeline = KPipeline.from_pretrained("prince-canute/kokoro-v1.0")
 voice = torch.load("makima_voice.pt", weights_only=True)
-pipeline.load_voice(voice)
+print(f"✅ Voice loaded on GPU: {torch.cuda.get_device_name(0)}")
 
 @app.route('/tts', methods=['POST'])
 def tts():
@@ -22,16 +23,20 @@ def tts():
     generator = pipeline(text, voice=voice)
     audio_chunks = []
     for gs, ps, chunk in generator:
-        audio_chunks.append(chunk)
+        audio_chunks.append(chunk.cpu().numpy())
 
-    audio = torch.cat(audio_chunks)
-    audio = audio.cpu().numpy()
+    audio = np.concatenate(audio_chunks)
 
-    # Save to temp file and return
+    # Create WAV buffer
     buffer = io.BytesIO()
     sf.write(buffer, audio, 24000, format='wav')
     buffer.seek(0)
-    return send_file(buffer, mimetype='audio/wav', as_attachment=True, download_name='makima.wav')
+
+    return Response(
+        buffer.getvalue(),
+        mimetype='audio/wav',
+        headers={'Content-Disposition': 'attachment; filename=makima.wav'}
+    )
 
 if __name__ == "__main__":
     app.run(host='127.0.0.1', port=5002, debug=False)
