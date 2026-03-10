@@ -86,6 +86,63 @@ async function waitForTTS(retries = 15, delayMs = 1000): Promise<boolean> {
     return false
 }
 
+// ─── Ollama process ───────────────────────────────────────────────────────────
+
+let ollamaProcess: ChildProcess | null = null
+
+function startOllama(): void {
+    // Check if Ollama is already running
+    fetch('http://localhost:11434/api/tags')
+        .then(() => console.log('Ollama already running'))
+        .catch(() => {
+            console.log('Starting Ollama...')
+            ollamaProcess = spawn('ollama', ['serve'], {
+                stdio: 'pipe',
+                shell: true,
+                env: { ...process.env }
+            })
+
+            ollamaProcess.stdout?.on('data', (data) => {
+                console.log('[Ollama]', data.toString().trim())
+            })
+
+            ollamaProcess.stderr?.on('data', (data) => {
+                console.log('[Ollama]', data.toString().trim())
+            })
+
+            ollamaProcess.on('exit', (code) => {
+                console.log('[Ollama] exited with code:', code)
+                ollamaProcess = null
+            })
+        })
+}
+
+function stopOllama(): void {
+    if (ollamaProcess) {
+        console.log('Stopping Ollama...')
+        ollamaProcess.kill()
+        ollamaProcess = null
+    }
+}
+
+async function waitForOllama(retries = 20, delayMs = 1000): Promise<boolean> {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const res = await fetch('http://localhost:11434/api/tags')
+            if (res.ok) {
+                console.log('Ollama ready')
+                return true
+            }
+        } catch {
+            console.log(`Waiting for Ollama... (${i + 1}/${retries})`)
+            await new Promise(r => setTimeout(r, delayMs))
+        }
+    }
+    console.warn('Ollama did not start in time')
+    return false
+}
+
+
 // ─── Window ───────────────────────────────────────────────────────────────────
 
 function createWindow(): void {
@@ -118,8 +175,15 @@ function createWindow(): void {
 // ─── App lifecycle ────────────────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
+    startOllama()
     startTTSServer()
-    await waitForTTS()  // wait up to 15s for TTS to boot
+
+    // Wait for both in parallel
+    await Promise.all([
+        waitForOllama(),
+        waitForTTS()
+    ])
+
     createWindow()
 
     app.on('activate', () => {
@@ -128,12 +192,14 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
-    stopTTSServer()  // ← kill Python process on app close
+    stopTTSServer()
+    stopOllama()
     if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('before-quit', () => {
     stopTTSServer()
+    stopOllama()
 })
 
 // ─── Window controls ──────────────────────────────────────────────────────────
