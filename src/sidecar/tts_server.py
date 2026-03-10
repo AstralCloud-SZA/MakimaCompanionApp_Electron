@@ -1,6 +1,7 @@
 import torch
 import soundfile as sf
 import numpy as np
+import io  # ← THIS WAS MISSING
 from flask import Flask, Response, request
 from flask_cors import CORS
 from kokoro import KPipeline
@@ -9,10 +10,9 @@ app = Flask(__name__)
 CORS(app)
 
 print("✅ Loading kokoro...")
-# KPipeline(lang_code='en', model=False) - model loads on first call
-pipeline = KPipeline(lang_code="b")
+pipeline = KPipeline(lang_code="a")  # American English
 voice = torch.load("makima_voice.pt", weights_only=True)
-print("✅ Voice + Pipeline ready on GPU")
+print("✅ Voice + Pipeline ready")
 
 @app.route('/tts', methods=['POST'])
 def tts():
@@ -28,7 +28,6 @@ def tts():
 
     audio = np.concatenate(audio_chunks)
 
-    # Create WAV buffer
     buffer = io.BytesIO()
     sf.write(buffer, audio, 24000, format='wav')
     buffer.seek(0)
@@ -40,4 +39,5 @@ def tts():
     )
 
 if __name__ == "__main__":
+    print("✅ TTS server ready at http://127.0.0.1:5002/tts")
     app.run(host='127.0.0.1', port=5002, debug=False)
