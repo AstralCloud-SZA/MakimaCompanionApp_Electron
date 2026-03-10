@@ -1,9 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('makima', {
+    // ─── Window controls ──────────────────────────────────────────────────
     minimize: () => ipcRenderer.send('window:minimize'),
     close:    () => ipcRenderer.send('window:close'),
 
+    // ─── Ollama ───────────────────────────────────────────────────────────
     ollamaCheck: (): Promise<{ ok: boolean; models?: string[]; error?: string }> =>
         ipcRenderer.invoke('ollama:health'),
 
@@ -15,4 +17,14 @@ contextBridge.exposeInMainWorld('makima', {
         ipcRenderer.on('ollama:token', handler)
         return () => ipcRenderer.removeListener('ollama:token', handler)
     },
+
+    // ─── TTS ──────────────────────────────────────────────────────────────
+    startTTS: (): Promise<{ ok: boolean }> =>
+        ipcRenderer.invoke('tts:start'),
+
+    stopTTS: (): Promise<{ ok: boolean }> =>
+        ipcRenderer.invoke('tts:stop'),
+
+    ttsHealth: (): Promise<{ ok: boolean }> =>
+        ipcRenderer.invoke('tts:health'),
 })

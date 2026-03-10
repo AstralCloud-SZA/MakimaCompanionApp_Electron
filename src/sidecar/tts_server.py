@@ -43,5 +43,5 @@ def tts():
         return {'status': 'ok'}, 200
 
 if __name__ == "__main__":
-    print("✅ TTS server ready at http://127.0.0.1:5002/tts")
+    print("TTS server ready at http://127.0.0.1:5002/tts")
     app.run(host='127.0.0.1', port=5002, debug=False)

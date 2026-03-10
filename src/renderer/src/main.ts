@@ -29,7 +29,9 @@ let animLocked     = false
 let idleTimer:     number | null = null
 let autoTimer:     number | null = null
 let lastUserTime   = Date.now()
-let audioContext:  AudioContext | null = null  // ← TTS audio context
+let audioContext:  AudioContext | null = null
+let ttsEnabled     = false                         // ← TTS toggle state
+let currentSource: AudioBufferSourceNode | null = null  // ← track playing audio
 
 const clock        = new THREE.Clock()
 const clipCache    = new Map<AnimName, THREE.AnimationClip>()
@@ -37,12 +39,22 @@ const chatHistory: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
 
 // ─── TTS ──────────────────────────────────────────────────────────────────────
 
+function stopCurrentAudio(): void {
+    if (currentSource) {
+        try { currentSource.stop() } catch { /* already stopped */ }
+        currentSource = null
+    }
+}
+
 async function speakText(text: string): Promise<void> {
+    if (!ttsEnabled) return
+    stopCurrentAudio()  // stop any currently playing audio
+
     try {
         const response = await fetch('http://127.0.0.1:5002/tts', {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
+            body:    JSON.stringify({ text })
         })
 
         if (!response.ok) {
@@ -51,21 +63,58 @@ async function speakText(text: string): Promise<void> {
         }
 
         const arrayBuffer = await response.arrayBuffer()
-
-        // Play audio using Web Audio API
         if (!audioContext) audioContext = new AudioContext()
+
+        // Resume audio context if suspended (browser autoplay policy)
+        if (audioContext.state === 'suspended') await audioContext.resume()
+
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-        const source = audioContext.createBufferSource()
-        source.buffer = audioBuffer
+        const source      = audioContext.createBufferSource()
+        source.buffer     = audioBuffer
         source.connect(audioContext.destination)
         source.start()
+        currentSource = source
 
-        // Schedule idle animation after speech ends
-        source.onended = () => scheduleIdle(1000)
+        source.onended = () => {
+            currentSource = null
+            scheduleIdle(1000)
+        }
 
     } catch (err) {
         console.warn('TTS unavailable:', err)
-        // Silent fail — app still works without TTS
+    }
+}
+
+// ─── TTS Toggle ───────────────────────────────────────────────────────────────
+
+function initTTSToggle(): void {
+    const btn = document.getElementById('tts-toggle') as HTMLButtonElement
+    if (!btn) return
+
+    const updateBtn = (): void => {
+        btn.textContent = ttsEnabled ? '♪' : '♩'
+        btn.title       = ttsEnabled ? 'Voice ON — click to mute' : 'Voice OFF — click to enable'
+        btn.classList.toggle('tts-off', !ttsEnabled)
+    }
+
+    updateBtn()
+
+    btn.onclick = async () =>
+    {
+        ttsEnabled = !ttsEnabled
+        if (!ttsEnabled)
+        {
+            stopCurrentAudio()
+            await window.makima.stopTTS()   // ← tell main to kill Python
+        } else
+        {
+            await window.makima.startTTS()  // ← tell main to start Python
+            setStatus('Loading voice…')
+            // Wait for TTS server to be ready
+            await new Promise(r => setTimeout(r, 8000))
+            setStatus('—')
+        }
+        updateBtn()
     }
 }
 
@@ -254,7 +303,7 @@ function addMsg(role: 'user' | 'assistant' | 'error', text: string): void {
     const div = document.createElement('div')
     if (role === 'error') {
         div.className   = 'msg-error'
-        div.textContent = `⚠ ${text}`
+        div.textContent = `! ${text}`
     } else {
         div.className = role === 'user' ? 'msg-user' : 'msg-assistant'
         div.innerHTML = `<strong>${role === 'user' ? 'You' : 'Makima'}</strong>${text.replace(/\n/g, '<br>')}`
@@ -290,10 +339,7 @@ async function sendMessage(text: string): Promise<void> {
 
         chatHistory.push({ role: 'assistant', content: reply })
         setStatus('—')
-
-        // ─── Speak the reply ──────────────────────────────────────────────
-        speakText(reply)  // ← non-blocking, fires and continues
-
+        speakText(reply)       // ← non-blocking
         scheduleIdle(6000)
         scheduleAutonomous()
     } catch (err) {
@@ -315,10 +361,7 @@ async function makimaSpeaks(trigger: string): Promise<void> {
         addMsg('assistant', reply)
         lastUserTime = Date.now()
         setStatus('—')
-
-        // ─── Speak autonomous reply ───────────────────────────────────────
-        speakText(reply)  // ← non-blocking
-
+        speakText(reply)       // ← non-blocking
         scheduleIdle(7000)
     } catch { /* silent */ }
 }
@@ -387,6 +430,7 @@ function init(): void {
 
     document.getElementById('vrm-canvas')!.addEventListener('click', () => input.focus())
 
+    initTTSToggle()   // ← wire up the toggle
     initScene()
     loadVRM()
     renderLoop()

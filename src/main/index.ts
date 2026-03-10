@@ -6,28 +6,27 @@ import { existsSync } from 'fs'
 
 const MODEL_NAME = 'gemma3:12b'
 const OLLAMA_URL = 'http://localhost:11434/api/chat'
-const TTS_URL    = 'http://127.0.0.1:5002/tts'
 
-// ─── TTS Server process ───────────────────────────────────────────────────────
+// ─── TTS Server ───────────────────────────────────────────────────────────────
 
 let ttsProcess: ChildProcess | null = null
 
 function getSidecarPath(): string {
-    if (is.dev) {
-        return join(__dirname, '../../src/sidecar')
-    }
-    return join(process.resourcesPath, 'sidecar')
+    return is.dev
+        ? join(__dirname, '../../src/sidecar')
+        : join(process.resourcesPath, 'sidecar')
 }
 
 function getPythonPath(): string {
-    const sidecar = getSidecarPath()
-    const venvPython = join(sidecar, 'venv', 'Scripts', 'python.exe')
+    const venvPython = join(getSidecarPath(), 'venv', 'Scripts', 'python.exe')
     return existsSync(venvPython) ? venvPython : 'python'
 }
 
 function startTTSServer(): void {
-    const sidecarPath = getSidecarPath()
-    const pythonPath  = getPythonPath()
+    if (ttsProcess) return  // already running
+
+    const sidecarPath  = getSidecarPath()
+    const pythonPath   = getPythonPath()
     const serverScript = join(sidecarPath, 'tts_server.py')
 
     if (!existsSync(serverScript)) {
@@ -36,8 +35,6 @@ function startTTSServer(): void {
     }
 
     console.log('Starting TTS server...')
-    console.log('Python:', pythonPath)
-    console.log('Script:', serverScript)
 
     ttsProcess = spawn(pythonPath, [serverScript], {
         cwd:   sidecarPath,
@@ -45,16 +42,10 @@ function startTTSServer(): void {
         env:   { ...process.env, PYTHONIOENCODING: 'utf-8' }
     })
 
-    ttsProcess.stdout?.on('data', (data) => {
-        console.log('[TTS]', data.toString().trim())
-    })
-
-    ttsProcess.stderr?.on('data', (data) => {
-        console.warn('[TTS ERR]', data.toString().trim())
-    })
-
+    ttsProcess.stdout?.on('data', (d) => console.log('[TTS]', d.toString().trim()))
+    ttsProcess.stderr?.on('data', (d) => console.warn('[TTS ERR]', d.toString().trim()))
     ttsProcess.on('exit', (code) => {
-        console.log('[TTS] Server exited with code:', code)
+        console.log('[TTS] exited with code:', code)
         ttsProcess = null
     })
 }
@@ -67,31 +58,26 @@ function stopTTSServer(): void {
     }
 }
 
-// ─── Wait for TTS server to be ready ─────────────────────────────────────────
-
-async function waitForTTS(retries = 15, delayMs = 1000): Promise<boolean> {
+async function waitForTTS(retries = 30, delayMs = 2000): Promise<boolean> {
+    await new Promise(r => setTimeout(r, 3000))  // give Python 3s head start
     for (let i = 0; i < retries; i++) {
         try {
-            const res = await fetch(`http://127.0.0.1:5002/health`)
-            if (res.ok) {
-                console.log('✅ TTS server ready')
-                return true
-            }
+            const res = await fetch('http://127.0.0.1:5002/health')
+            if (res.ok) { console.log('TTS server ready'); return true }
         } catch {
-            console.log(`Waiting for TTS server... (${i + 1}/${retries})`)
+            console.log(`Waiting for TTS... (${i + 1}/${retries})`)
             await new Promise(r => setTimeout(r, delayMs))
         }
     }
-    console.warn('TTS server did not start in time — continuing without TTS')
+    console.warn('TTS server did not start in time')
     return false
 }
 
-// ─── Ollama process ───────────────────────────────────────────────────────────
+// ─── Ollama ───────────────────────────────────────────────────────────────────
 
 let ollamaProcess: ChildProcess | null = null
 
 function startOllama(): void {
-    // Check if Ollama is already running
     fetch('http://localhost:11434/api/tags')
         .then(() => console.log('Ollama already running'))
         .catch(() => {
@@ -99,17 +85,10 @@ function startOllama(): void {
             ollamaProcess = spawn('ollama', ['serve'], {
                 stdio: 'pipe',
                 shell: true,
-                env: { ...process.env }
+                env:   { ...process.env }
             })
-
-            ollamaProcess.stdout?.on('data', (data) => {
-                console.log('[Ollama]', data.toString().trim())
-            })
-
-            ollamaProcess.stderr?.on('data', (data) => {
-                console.log('[Ollama]', data.toString().trim())
-            })
-
+            ollamaProcess.stdout?.on('data', (d) => console.log('[Ollama]', d.toString().trim()))
+            ollamaProcess.stderr?.on('data', (d) => console.log('[Ollama]', d.toString().trim()))
             ollamaProcess.on('exit', (code) => {
                 console.log('[Ollama] exited with code:', code)
                 ollamaProcess = null
@@ -129,10 +108,7 @@ async function waitForOllama(retries = 20, delayMs = 1000): Promise<boolean> {
     for (let i = 0; i < retries; i++) {
         try {
             const res = await fetch('http://localhost:11434/api/tags')
-            if (res.ok) {
-                console.log('Ollama ready')
-                return true
-            }
+            if (res.ok) { console.log('Ollama ready'); return true }
         } catch {
             console.log(`Waiting for Ollama... (${i + 1}/${retries})`)
             await new Promise(r => setTimeout(r, delayMs))
@@ -141,7 +117,6 @@ async function waitForOllama(retries = 20, delayMs = 1000): Promise<boolean> {
     console.warn('Ollama did not start in time')
     return false
 }
-
 
 // ─── Window ───────────────────────────────────────────────────────────────────
 
@@ -176,15 +151,8 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
     startOllama()
-    startTTSServer()
-
-    // Wait for both in parallel
-    await Promise.all([
-        waitForOllama(),
-        waitForTTS()
-    ])
-
-    createWindow()
+    await waitForOllama()
+    createWindow()  // TTS only starts when user toggles it on
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -207,7 +175,30 @@ app.on('before-quit', () => {
 ipcMain.on('window:minimize', () => BrowserWindow.getFocusedWindow()?.minimize())
 ipcMain.on('window:close',    () => {
     stopTTSServer()
+    stopOllama()
     BrowserWindow.getFocusedWindow()?.close()
+})
+
+// ─── TTS on-demand ────────────────────────────────────────────────────────────
+
+ipcMain.handle('tts:start', async () => {
+    startTTSServer()
+    const ok = await waitForTTS()
+    return { ok }
+})
+
+ipcMain.handle('tts:stop', async () => {
+    stopTTSServer()
+    return { ok: true }
+})
+
+ipcMain.handle('tts:health', async () => {
+    try {
+        const res = await fetch('http://127.0.0.1:5002/health')
+        return { ok: res.ok }
+    } catch {
+        return { ok: false }
+    }
 })
 
 // ─── Ollama chat (streaming) ──────────────────────────────────────────────────
@@ -240,7 +231,7 @@ ipcMain.handle('ollama:chat', async (_e, messages: { role: string; content: stri
     return fullContent
 })
 
-// ─── Ollama health check ──────────────────────────────────────────────────────
+// ─── Ollama health ────────────────────────────────────────────────────────────
 
 ipcMain.handle('ollama:health', async () => {
     try {
@@ -249,16 +240,5 @@ ipcMain.handle('ollama:health', async () => {
         return { ok: true, models: (data.models ?? []).map((m: any) => m.name as string) }
     } catch (err) {
         return { ok: false, error: (err as Error).message }
-    }
-})
-
-// ─── TTS health check ────────────────────────────────────────────────────────
-
-ipcMain.handle('tts:health', async () => {
-    try {
-        const res = await fetch('http://127.0.0.1:5002/health')
-        return { ok: res.ok }
-    } catch {
-        return { ok: false }
     }
 })

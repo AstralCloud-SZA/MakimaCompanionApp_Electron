@@ -71,6 +71,7 @@
         #win-controls {
             -webkit-app-region: no-drag;
             display: flex;
+            align-items: center;
             gap: 3px;
         }
 
@@ -88,6 +89,34 @@
 
         #win-controls button:hover { color: var(--ring2); background: rgba(180,130,0,0.15); }
         #btn-close:hover { color: var(--iris-bright) !important; background: rgba(155,26,26,0.25) !important; }
+
+        /* ── TTS Toggle ───────────────────────────────────────────────────────── */
+        #tts-toggle {
+            background: transparent;
+            border: none;
+            color: rgba(200, 150, 10, 0.5);
+            font-size: 13px;
+            cursor: pointer;
+            width: 26px; height: 22px;
+            border-radius: 2px;
+            transition: color 0.15s, background 0.15s;
+            display: flex; align-items: center; justify-content: center;
+            margin-right: 6px;
+        }
+
+        #tts-toggle:hover {
+            color: var(--ring2);
+            background: rgba(180,130,0,0.15);
+        }
+
+        #tts-toggle.tts-off {
+            color: rgba(224, 212, 200, 0.15);
+        }
+
+        #tts-toggle.tts-off:hover {
+            color: rgba(224, 212, 200, 0.4);
+            background: rgba(255,255,255,0.04);
+        }
 
         /* ── Eye mark ─────────────────────────────────────────────────────────── */
         #eye-mark {
@@ -268,16 +297,13 @@
             text-shadow: 0 0 10px var(--ring-glow);
         }
 
-        .msg-assistant span::after
-        {
+        .msg-assistant span::after {
             content: '▌';
             animation: blink 0.7s step-end infinite;
             color: rgba(180, 30, 30, 0.8);
         }
-        @keyframes blink {
-            50% { opacity: 0; }
-        }
 
+        @keyframes blink { 50% { opacity: 0; } }
 
         /* ── Status ───────────────────────────────────────────────────────────── */
         #status {
@@ -298,6 +324,9 @@
 <div id="drag-bar">
     <span id="drag-title">Makima</span>
     <div id="win-controls">
+        <!-- TTS toggle sits left of window controls -->
+        <button id="tts-toggle" title="Voice ON">♪</button>
+        <div style="width:1px; height:14px; background:rgba(200,150,10,0.2); margin: 0 4px;"></div>
         <button id="btn-minimize">─</button>
         <button id="btn-close">✕</button>
     </div>
