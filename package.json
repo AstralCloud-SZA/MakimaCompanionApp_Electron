@@ -17,7 +17,14 @@
     "win": {
       "icon": "build/icon2.ico",
       "target": "nsis"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "src/sidecar",
+        "to": "sidecar",
+        "filter": ["**/*", "!venv/**", "!__pycache__/**", "!*.pyc"]
+      }
+    ]
   },
   "dependencies": {
     "@pixiv/three-vrm": "^2.1.3",

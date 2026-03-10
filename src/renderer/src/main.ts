@@ -4,7 +4,7 @@ import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation'
 import { Animations_VRM, TALK_ANIMS, VRM_PATH, VRM_INTERNAL_BONES } from './animations_VRM'
 import type { AnimName } from './animations_VRM'
-import { BONE_MAP } from './bonemap'                // ← kept as backup, not actively used
+import { BONE_MAP } from './bonemap'
 import { AUTONOMOUS_PROMPTS } from './prompts'
 
 // ─── System prompt ────────────────────────────────────────────────────────────
@@ -29,10 +29,45 @@ let animLocked     = false
 let idleTimer:     number | null = null
 let autoTimer:     number | null = null
 let lastUserTime   = Date.now()
+let audioContext:  AudioContext | null = null  // ← TTS audio context
 
 const clock        = new THREE.Clock()
 const clipCache    = new Map<AnimName, THREE.AnimationClip>()
 const chatHistory: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
+
+// ─── TTS ──────────────────────────────────────────────────────────────────────
+
+async function speakText(text: string): Promise<void> {
+    try {
+        const response = await fetch('http://127.0.0.1:5002/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        })
+
+        if (!response.ok) {
+            console.warn('TTS server error:', response.status)
+            return
+        }
+
+        const arrayBuffer = await response.arrayBuffer()
+
+        // Play audio using Web Audio API
+        if (!audioContext) audioContext = new AudioContext()
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
+        const source = audioContext.createBufferSource()
+        source.buffer = audioBuffer
+        source.connect(audioContext.destination)
+        source.start()
+
+        // Schedule idle animation after speech ends
+        source.onended = () => scheduleIdle(1000)
+
+    } catch (err) {
+        console.warn('TTS unavailable:', err)
+        // Silent fail — app still works without TTS
+    }
+}
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
@@ -50,8 +85,8 @@ function initScene(): void {
     scene  = new THREE.Scene()
 
     camera = new THREE.PerspectiveCamera(28, window.innerWidth / window.innerHeight, 0.1, 20)
-    camera.position.set(0, 1.0, 4.58)   // ← Z further back, Y lower
-    camera.lookAt(0, 0.9, 0)           // ← look at mid-torso to centre full body
+    camera.position.set(0, 1.0, 4.58)
+    camera.lookAt(0, 0.9, 0)
 
     renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
     renderer.setSize(window.innerWidth, window.innerHeight)
@@ -81,8 +116,8 @@ function initScene(): void {
 function renderLoop(): void {
     requestAnimationFrame(renderLoop)
     const delta = clock.getDelta()
-    mixer?.update(delta)   // mixer first — poses the bones
-    vrm?.update(delta)     // vrm second — spring bones simulate on posed skeleton
+    mixer?.update(delta)
+    vrm?.update(delta)
     renderer.render(scene, camera)
 }
 
@@ -127,7 +162,7 @@ function loadVRM(): void {
     )
 }
 
-// ─── VRMA — load and cache via VRMAnimationLoaderPlugin ──────────────────────
+// ─── VRMA ─────────────────────────────────────────────────────────────────────
 
 async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
     if (clipCache.has(name)) return clipCache.get(name)!
@@ -144,9 +179,6 @@ async function getClip(name: AnimName): Promise<THREE.AnimationClip> {
                     reject(new Error('No VRM animations in: ' + Animations_VRM[name]))
                     return
                 }
-                // createVRMAnimationClip applies through humanoid (normalized space)
-                // BONE_MAP / VRM_INTERNAL_BONES kept in imports as manual fallback
-                // if switching back to raw retargeting is ever needed
                 const clip = createVRMAnimationClip(vrmAnimations[0], vrm)
                 clipCache.set(name, clip)
                 resolve(clip)
@@ -239,7 +271,6 @@ async function sendMessage(text: string): Promise<void> {
     await playAnim(pickContextAnim(text))
     setStatus('…')
     try {
-        // ─── Create streaming message bubble ──────────────────────────────
         const log       = document.getElementById('chat-log')!
         const streamDiv = document.createElement('div')
         const textSpan  = document.createElement('span')
@@ -249,19 +280,20 @@ async function sendMessage(text: string): Promise<void> {
         log.appendChild(streamDiv)
         while (log.children.length > MAX_MSGS) log.removeChild(log.firstChild!)
 
-        // ─── Subscribe to tokens ──────────────────────────────────────────
-        const unsub = window.makima.onToken((token: string) =>
-        {
+        const unsub = window.makima.onToken((token: string) => {
             textSpan.textContent += token
             log.scrollTop = log.scrollHeight
         })
 
-        // ─── Await full reply (streaming happens in background) ───────────
         const reply = await window.makima.ollamaChat(chatHistory)
-        unsub()   // stop listening
+        unsub()
 
         chatHistory.push({ role: 'assistant', content: reply })
         setStatus('—')
+
+        // ─── Speak the reply ──────────────────────────────────────────────
+        speakText(reply)  // ← non-blocking, fires and continues
+
         scheduleIdle(6000)
         scheduleAutonomous()
     } catch (err) {
@@ -274,17 +306,19 @@ async function sendMessage(text: string): Promise<void> {
 
 // ─── Makima autonomous engagement ────────────────────────────────────────────
 
-async function makimaSpeaks(trigger: string): Promise<void>
-{
+async function makimaSpeaks(trigger: string): Promise<void> {
     chatHistory.push({ role: 'user', content: trigger })
-    try
-    {
+    try {
         await playAnim(TALK_ANIMS[Math.floor(Math.random() * TALK_ANIMS.length)])
         const reply = await window.makima.ollamaChat(chatHistory)
         chatHistory.push({ role: 'assistant', content: reply })
         addMsg('assistant', reply)
         lastUserTime = Date.now()
         setStatus('—')
+
+        // ─── Speak autonomous reply ───────────────────────────────────────
+        speakText(reply)  // ← non-blocking
+
         scheduleIdle(7000)
     } catch { /* silent */ }
 }
