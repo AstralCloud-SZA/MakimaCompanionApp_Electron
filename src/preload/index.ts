@@ -12,19 +12,18 @@ contextBridge.exposeInMainWorld('makima', {
     ollamaChat: (messages: { role: string; content: string }[]): Promise<string> =>
         ipcRenderer.invoke('ollama:chat', messages),
 
-    onToken: (cb: (token: string) => void): (() => void) => {
+    onToken: (cb: (token: string) => void): (() => void) =>
+    {
         const handler = (_e: Electron.IpcRendererEvent, token: string) => cb(token)
         ipcRenderer.on('ollama:token', handler)
         return () => ipcRenderer.removeListener('ollama:token', handler)
     },
 
+    getResourcesPath: (): string => ipcRenderer.sendSync('app:resourcesPath'),
     // ─── TTS ──────────────────────────────────────────────────────────────
-    startTTS: (): Promise<{ ok: boolean }> =>
-        ipcRenderer.invoke('tts:start'),
+    startTTS: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('tts:start'),
 
-    stopTTS: (): Promise<{ ok: boolean }> =>
-        ipcRenderer.invoke('tts:stop'),
+    stopTTS: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('tts:stop'),
 
-    ttsHealth: (): Promise<{ ok: boolean }> =>
-        ipcRenderer.invoke('tts:health'),
+    ttsHealth: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('tts:health'),
 })

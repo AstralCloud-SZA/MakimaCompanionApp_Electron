@@ -285,3 +285,9 @@ ipcMain.handle('ollama:health', async () => {
         return { ok: false, error: (err as Error).message }
     }
 })
+
+
+// Add with your other ipcMain handlers at the bottom
+ipcMain.on('app:resourcesPath', (e) => {
+    e.returnValue = process.resourcesPath
+})

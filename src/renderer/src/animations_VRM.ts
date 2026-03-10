@@ -1,7 +1,11 @@
-// animations_VRM.ts
+function getBase(): string
+{
+    if (window.location.protocol !== 'file:') return './models'  // dev — Vite serves it
+    const rp = window.makima.getResourcesPath().replace(/\\/g, '/')
+    return `file:///${rp}/models`
+}
 
-const isProd = window.location.protocol === 'file:'
-const BASE   = isProd ? 'asset://models' : './models'
+const BASE = getBase()
 
 export const VRM_PATH = `${BASE}/makimaModel.vrm`
 
