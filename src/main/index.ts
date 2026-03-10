@@ -200,14 +200,6 @@ function createWindow(): void {
         win.loadFile(join(__dirname, '../renderer/index.html'))
     }
 
-    // Debug shortcut — Ctrl+Shift+I opens DevTools in packaged app
-    win.webContents.on('before-input-event', (event, input) =>
-    {
-        if (input.control && input.shift && input.key === 'I') {
-            win.webContents.openDevTools({ mode: 'detach' })
-        }
-    })
-
 }
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
