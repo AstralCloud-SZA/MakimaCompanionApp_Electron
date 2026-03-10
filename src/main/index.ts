@@ -35,7 +35,8 @@ function registerAssetProtocol(): void {
 
 let ttsProcess: ChildProcess | null = null
 
-function getSidecarPath(): string {
+function getSidecarPath(): string
+{
     return is.dev
         ? join(__dirname, '../../src/sidecar')
         : join(process.resourcesPath, 'sidecar')
@@ -173,17 +174,17 @@ function createWindow(): void {
         },
     })
 
-    // ─── Content Security Policy ──────────────────────────────────────────────
+// ─── Content Security Policy ──────────────────────────────────────────────
     win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
         callback({
             responseHeaders: {
                 ...details.responseHeaders,
                 'Content-Security-Policy': [
-                    "default-src 'self' asset:; " +
+                    "default-src 'self' asset: blob:; " +
                     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                     "font-src 'self' asset: data: https://fonts.gstatic.com; " +
                     "script-src 'self' 'unsafe-inline'; " +
-                    "connect-src 'self' http://localhost:11434 http://127.0.0.1:5002; " +
+                    "connect-src 'self' blob: http://localhost:11434 http://127.0.0.1:5002; " +
                     "media-src 'self' blob: asset:; " +
                     "img-src 'self' data: blob: asset:;"
                 ]
@@ -191,12 +192,22 @@ function createWindow(): void {
         })
     })
 
+
     if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
         win.loadURL(process.env['ELECTRON_RENDERER_URL'])
         win.webContents.openDevTools({ mode: 'detach' })
     } else {
         win.loadFile(join(__dirname, '../renderer/index.html'))
     }
+
+    // Debug shortcut — Ctrl+Shift+I opens DevTools in packaged app
+    win.webContents.on('before-input-event', (event, input) =>
+    {
+        if (input.control && input.shift && input.key === 'I') {
+            win.webContents.openDevTools({ mode: 'detach' })
+        }
+    })
+
 }
 
 // ─── App lifecycle ────────────────────────────────────────────────────────────
