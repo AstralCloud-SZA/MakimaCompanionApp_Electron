@@ -3,15 +3,16 @@ import soundfile as sf
 import numpy as np
 from flask import Flask, Response, request
 from flask_cors import CORS
-from kokoro.pipeline import KPipeline
+from kokoro import KPipeline
 
 app = Flask(__name__)
 CORS(app)
 
 print("✅ Loading kokoro...")
-pipeline = KPipeline.from_pretrained("prince-canute/kokoro-v1.0")
+# KPipeline(lang_code='en', model=False) - model loads on first call
+pipeline = KPipeline(lang_code="b")
 voice = torch.load("makima_voice.pt", weights_only=True)
-print(f"✅ Voice loaded on GPU: {torch.cuda.get_device_name(0)}")
+print("✅ Voice + Pipeline ready on GPU")
 
 @app.route('/tts', methods=['POST'])
 def tts():
