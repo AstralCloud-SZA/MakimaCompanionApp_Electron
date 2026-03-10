@@ -42,7 +42,7 @@ function startTTSServer(): void {
     ttsProcess = spawn(pythonPath, [serverScript], {
         cwd:   sidecarPath,
         stdio: 'pipe',
-        env:   { ...process.env }
+        env:   { ...process.env, PYTHONIOENCODING: 'utf-8' }
     })
 
     ttsProcess.stdout?.on('data', (data) => {

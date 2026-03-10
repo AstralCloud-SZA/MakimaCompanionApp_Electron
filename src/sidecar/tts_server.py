@@ -9,10 +9,10 @@ from kokoro import KPipeline
 app = Flask(__name__)
 CORS(app)
 
-print("✅ Loading kokoro...")
+print(" Loading kokoro...")
 pipeline = KPipeline(lang_code="a")  # American English
 voice = torch.load("makima_voice.pt", weights_only=True)
-print("✅ Voice + Pipeline ready")
+print(" Voice + Pipeline ready")
 
 @app.route('/tts', methods=['POST'])
 def tts():
