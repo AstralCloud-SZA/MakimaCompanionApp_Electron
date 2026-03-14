@@ -250,6 +250,38 @@
         .msg-user strong       { color: var(--bone-dim); }
         .msg-assistant strong  { color: var(--ring2); text-shadow: 0 0 8px var(--ring-glow); }
 
+        /* ── Mic Button ───────────────────────────────────────────────────────────── */
+        #mic-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid var(--border-iris);
+            color: rgba(155, 26, 26, 0.5);
+            font-size: 13px;
+            cursor: pointer;
+            width: 32px; height: 36px;
+            border-radius: 2px;
+            display: flex; align-items: center; justify-content: center;
+            transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
+            flex-shrink: 0;
+        }
+
+        #mic-btn:hover {
+            color: var(--iris-bright);
+            border-bottom-color: var(--iris-bright);
+        }
+
+        #mic-btn.recording {
+            color: var(--iris-bright);
+            border-bottom-color: var(--iris-bright);
+            animation: mic-pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes mic-pulse {
+            0%, 100% { box-shadow: none; opacity: 1; }
+            50%       { box-shadow: 0 0 10px var(--iris-glow); opacity: 0.7; }
+        }
+
+
         /* ── Input ────────────────────────────────────────────────────────────── */
         #chat-form {
             display: flex;
@@ -345,6 +377,7 @@
     <div id="chat-log"></div>
     <form id="chat-form" autocomplete="off">
         <input id="chat-input" type="text" placeholder="speak…" spellcheck="false" />
+        <button id="mic-btn" type="button" title="Click to speak">🎤</button>
         <button id="send-btn" type="submit">Speak</button>
     </form>
     <div id="status">—</div>

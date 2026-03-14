@@ -32,6 +32,11 @@ let audioContext:  AudioContext | null = null
 let ttsEnabled     = false
 let currentSource: AudioBufferSourceNode | null = null
 
+// ─── STT State ────────────────────────────────────────────────────────────────
+//let recognition:  InstanceType<typeof SpeechRecognition> | null = null
+//let isRecording = false
+
+
 const clock      = new THREE.Clock()
 const clipCache  = new Map<AnimName, THREE.AnimationClip>()
 const chatHistory: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
