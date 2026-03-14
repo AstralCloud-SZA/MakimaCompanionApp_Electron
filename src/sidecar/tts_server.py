@@ -1,47 +1,60 @@
+import os
+import sys
 import torch
 import soundfile as sf
 import numpy as np
-import io  # ← THIS WAS MISSING
-from flask import Flask, Response, request
+import io
+from flask import Flask, Response, request, jsonify
 from flask_cors import CORS
 from kokoro import KPipeline
 
 app = Flask(__name__)
 CORS(app)
 
-print(" Loading kokoro...")
-pipeline = KPipeline(lang_code="a")  # American English
-voice = torch.load("makima_voice.pt", weights_only=True)
-print(" Voice + Pipeline ready")
+# ─── Resolve paths — works as .py script and PyInstaller .exe ────────────────
+BASE_DIR   = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+VOICE_PATH = os.path.join(BASE_DIR, 'makima_voice.pt')
+
+print("Loading Kokoro...", flush=True)
+pipeline = KPipeline(lang_code="a")
+voice    = torch.load(VOICE_PATH, weights_only=True)
+print("✅ Voice + Pipeline ready", flush=True)
+
+# ─── Routes ───────────────────────────────────────────────────────────────────
+
+@app.route('/health', methods=['GET'])        # ← fix 1: unindented, now registered
+def health():
+    return jsonify({'status': 'ok'}), 200
 
 @app.route('/tts', methods=['POST'])
 def tts():
-    text = request.json.get('text', '')
+    data = request.get_json(silent=True)
+    text = (data or {}).get('text', '').strip()
     if not text:
-        return "No text provided", 400
+        return jsonify({'error': 'No text provided'}), 400
 
-    # Generate audio
-    generator = pipeline(text, voice=voice)
-    audio_chunks = []
-    for gs, ps, chunk in generator:
-        audio_chunks.append(chunk.cpu().numpy())
+    try:
+        generator    = pipeline(text, voice=voice)
+        audio_chunks = []
+        for _gs, _ps, chunk in generator:
+            audio_chunks.append(chunk.cpu().numpy())
 
-    audio = np.concatenate(audio_chunks)
+        audio  = np.concatenate(audio_chunks)
+        buffer = io.BytesIO()
+        sf.write(buffer, audio, 24000, format='wav')
+        buffer.seek(0)
 
-    buffer = io.BytesIO()
-    sf.write(buffer, audio, 24000, format='wav')
-    buffer.seek(0)
+        return Response(
+            buffer.getvalue(),
+            mimetype='audio/wav',
+            headers={'Content-Disposition': 'attachment; filename=makima.wav'}
+        )
+    except Exception as e:
+        print(f"TTS error: {e}", flush=True)
+        return jsonify({'error': str(e)}), 500
 
-    return Response(
-        buffer.getvalue(),
-        mimetype='audio/wav',
-        headers={'Content-Disposition': 'attachment; filename=makima.wav'}
-    )
+# ─── Entry point ──────────────────────────────────────────────────────────────
 
-    @app.route('/health', methods=['GET'])
-    def health():
-        return {'status': 'ok'}, 200
-
-if __name__ == "__main__":
-    print("TTS server ready at http://127.0.0.1:5002/tts")
+if __name__ == '__main__':
+    print("TTS server ready at http://127.0.0.1:5002", flush=True)
     app.run(host='127.0.0.1', port=5002, debug=False)

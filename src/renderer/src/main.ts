@@ -2,9 +2,8 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation'
-import { Animations_VRM, TALK_ANIMS, VRM_PATH, VRM_INTERNAL_BONES } from './animations_VRM'
+import { Animations_VRM, TALK_ANIMS, VRM_PATH } from './animations_VRM'
 import type { AnimName } from './animations_VRM'
-import { BONE_MAP } from './bonemap'
 import { AUTONOMOUS_PROMPTS } from './prompts'
 
 // ─── System prompt ────────────────────────────────────────────────────────────
@@ -30,11 +29,11 @@ let idleTimer:     number | null = null
 let autoTimer:     number | null = null
 let lastUserTime   = Date.now()
 let audioContext:  AudioContext | null = null
-let ttsEnabled     = false                         // ← TTS toggle state
-let currentSource: AudioBufferSourceNode | null = null  // ← track playing audio
+let ttsEnabled     = false
+let currentSource: AudioBufferSourceNode | null = null
 
-const clock        = new THREE.Clock()
-const clipCache    = new Map<AnimName, THREE.AnimationClip>()
+const clock      = new THREE.Clock()
+const clipCache  = new Map<AnimName, THREE.AnimationClip>()
 const chatHistory: ChatMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
 
 // ─── TTS ──────────────────────────────────────────────────────────────────────
@@ -48,7 +47,7 @@ function stopCurrentAudio(): void {
 
 async function speakText(text: string): Promise<void> {
     if (!ttsEnabled) return
-    stopCurrentAudio()  // stop any currently playing audio
+    stopCurrentAudio()
 
     try {
         const response = await fetch('http://127.0.0.1:5002/tts', {
@@ -64,8 +63,6 @@ async function speakText(text: string): Promise<void> {
 
         const arrayBuffer = await response.arrayBuffer()
         if (!audioContext) audioContext = new AudioContext()
-
-        // Resume audio context if suspended (browser autoplay policy)
         if (audioContext.state === 'suspended') await audioContext.resume()
 
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
@@ -79,7 +76,6 @@ async function speakText(text: string): Promise<void> {
             currentSource = null
             scheduleIdle(1000)
         }
-
     } catch (err) {
         console.warn('TTS unavailable:', err)
     }
@@ -91,7 +87,13 @@ function initTTSToggle(): void {
     const btn = document.getElementById('tts-toggle') as HTMLButtonElement
     if (!btn) return
 
-    const updateBtn = (): void => {
+    const updateBtn = (loading = false): void => {
+        if (loading) {
+            btn.textContent = '…'
+            btn.disabled    = true
+            return
+        }
+        btn.disabled    = false
         btn.textContent = ttsEnabled ? '♪' : '♩'
         btn.title       = ttsEnabled ? 'Voice ON — click to mute' : 'Voice OFF — click to enable'
         btn.classList.toggle('tts-off', !ttsEnabled)
@@ -99,20 +101,28 @@ function initTTSToggle(): void {
 
     updateBtn()
 
-    btn.onclick = async () =>
-    {
+    btn.onclick = async () => {
         ttsEnabled = !ttsEnabled
-        if (!ttsEnabled)
-        {
+
+        if (!ttsEnabled) {
             stopCurrentAudio()
-            await window.makima.stopTTS()   // ← tell main to kill Python
-        } else
-        {
-            await window.makima.startTTS()  // ← tell main to start Python
-            setStatus('Loading voice…')
-            // Wait for TTS server to be ready
-            await new Promise(r => setTimeout(r, 8000))
+            await window.makima.stopTTS()
+            updateBtn()
+            return
+        }
+
+        // Starting TTS — show loading state, wait for real ready signal
+        updateBtn(true)
+        setStatus('Loading voice…')
+
+        const { ok } = await window.makima.startTTS()  // ← waits until /health responds
+
+        if (ok) {
             setStatus('—')
+        } else {
+            ttsEnabled = false
+            setStatus('Voice unavailable', '#cc2020')
+            console.warn('TTS server failed to start')
         }
         updateBtn()
     }
@@ -187,18 +197,14 @@ function loadVRM(): void {
             }
 
             vrm = loadedVrm
-
             VRMUtils.removeUnnecessaryVertices(gltf.scene)
             VRMUtils.removeUnnecessaryJoints(gltf.scene)
-
             vrm.humanoid.resetNormalizedPose()
             vrm.scene.rotation.y = 0
             vrm.scene.position.set(0, 0.2385, 0)
             if (vrm.lookAt) vrm.lookAt.enabled = false
-
             scene.add(vrm.scene)
             vrm.scene.traverse((obj: any) => { obj.frustumCulled = false })
-
             mixer = new THREE.AnimationMixer(vrm.scene)
             setStatus('—')
             setTimeout(() => playAnim('idle'), 400)
@@ -301,10 +307,12 @@ const MAX_MSGS = 2
 function addMsg(role: 'user' | 'assistant' | 'error', text: string): void {
     const log = document.getElementById('chat-log')!
     const div = document.createElement('div')
-    if (role === 'error') {
+    if (role === 'error')
+    {
         div.className   = 'msg-error'
         div.textContent = `! ${text}`
-    } else {
+    } else
+    {
         div.className = role === 'user' ? 'msg-user' : 'msg-assistant'
         div.innerHTML = `<strong>${role === 'user' ? 'You' : 'Makima'}</strong>${text.replace(/\n/g, '<br>')}`
     }
@@ -312,14 +320,16 @@ function addMsg(role: 'user' | 'assistant' | 'error', text: string): void {
     while (log.children.length > MAX_MSGS) log.removeChild(log.firstChild!)
 }
 
-async function sendMessage(text: string): Promise<void> {
+async function sendMessage(text: string): Promise<void>
+{
     if (!text.trim()) return
     addMsg('user', text)
     lastUserTime = Date.now()
     chatHistory.push({ role: 'user', content: text })
     await playAnim(pickContextAnim(text))
     setStatus('…')
-    try {
+    try
+    {
         const log       = document.getElementById('chat-log')!
         const streamDiv = document.createElement('div')
         const textSpan  = document.createElement('span')
@@ -329,7 +339,8 @@ async function sendMessage(text: string): Promise<void> {
         log.appendChild(streamDiv)
         while (log.children.length > MAX_MSGS) log.removeChild(log.firstChild!)
 
-        const unsub = window.makima.onToken((token: string) => {
+        const unsub = window.makima.onToken((token: string) =>
+        {
             textSpan.textContent += token
             log.scrollTop = log.scrollHeight
         })
@@ -339,7 +350,7 @@ async function sendMessage(text: string): Promise<void> {
 
         chatHistory.push({ role: 'assistant', content: reply })
         setStatus('—')
-        speakText(reply)       // ← non-blocking
+        speakText(reply)
         scheduleIdle(6000)
         scheduleAutonomous()
     } catch (err) {
@@ -350,26 +361,32 @@ async function sendMessage(text: string): Promise<void> {
     }
 }
 
-// ─── Makima autonomous engagement ────────────────────────────────────────────
+// ─── Autonomous engagement ────────────────────────────────────────────────────
 
-async function makimaSpeaks(trigger: string): Promise<void> {
+async function makimaSpeaks(trigger: string): Promise<void>
+{
     chatHistory.push({ role: 'user', content: trigger })
-    try {
+    try
+    {
         await playAnim(TALK_ANIMS[Math.floor(Math.random() * TALK_ANIMS.length)])
         const reply = await window.makima.ollamaChat(chatHistory)
         chatHistory.push({ role: 'assistant', content: reply })
         addMsg('assistant', reply)
         lastUserTime = Date.now()
         setStatus('—')
-        speakText(reply)       // ← non-blocking
+        speakText(reply)
         scheduleIdle(7000)
     } catch { /* silent */ }
 }
 
-function scheduleAutonomous(): void {
+function scheduleAutonomous(): void
+{
     if (autoTimer) clearTimeout(autoTimer)
+
     const delay = 45_000 + Math.random() * 135_000
-    autoTimer = window.setTimeout(async () => {
+
+    autoTimer = window.setTimeout(async () =>
+    {
         const idleSecs = (Date.now() - lastUserTime) / 1000
         if (idleSecs < 30) { scheduleAutonomous(); return }
         const prompt = AUTONOMOUS_PROMPTS[Math.floor(Math.random() * AUTONOMOUS_PROMPTS.length)]
@@ -430,7 +447,7 @@ function init(): void {
 
     document.getElementById('vrm-canvas')!.addEventListener('click', () => input.focus())
 
-    initTTSToggle()   // ← wire up the toggle
+    initTTSToggle()
     initScene()
     loadVRM()
     renderLoop()
